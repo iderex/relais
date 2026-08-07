@@ -74,27 +74,34 @@ jobs:
         run: go version
 
       - name: Build every package
-        run: go build ./...
+        # The output goes outside the checkout, and that is load-bearing rather
+        # than tidiness. `go build ./...` writes its executable into the working
+        # directory, git then reports the tree as modified, and the toolchain
+        # stamps that state into every binary built afterwards. The first version
+        # of this step left the output in place and the bill of materials below
+        # described a clean checkout as `+dirty`, which is a false statement about
+        # the artefact an operator would be reading.
+        #
+        # `-o` with a trailing separator names a directory, which is what lets one
+        # step compile every package and still produce the binary the next step
+        # describes.
+        run: go build -o "$RUNNER_TEMP/build/" ./...
 
       # An operator running this on their own hardware is the person who has to
       # answer a vulnerability question about it, and they cannot do that from a
       # binary alone. The bill of materials is how they answer it without reading
       # this repository.
       #
-      # It is produced by the build rather than beside it: the binary below is the
-      # one the previous step's compiler settings produce, and the document
-      # describes that artefact rather than a separate scan of the source tree
-      # that might disagree with it.
-      - name: Build the binary the document describes
-        run: go build -o relais .
-
+      # It is produced by the build rather than beside it: the file below is the
+      # binary the step above produced, so the document describes the artefact
+      # rather than a separate scan of the source tree that might disagree with it.
       - name: Produce the bill of materials
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
         with:
           # The compiled binary, not the directory. A binary carries the module
           # graph the toolchain actually linked, so the document cannot claim a
           # dependency that was resolved away or miss one that was pulled in.
-          file: relais
+          file: ${{ runner.temp }}/build/relais
           # SPDX, because it is the ISO-standardised format of the two common ones
           # and an operator is more likely to have something that reads it. The
           # JSON encoding rather than the tag-value one, because the consumer here
