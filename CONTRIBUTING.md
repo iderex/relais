@@ -99,8 +99,11 @@ when it was written, so it is not used here. Neither is a suppression whose reas
 is that the finding is wrong: if it is wrong, the linter's configuration is what
 changes, in `.golangci.yml`, where the next person can see it.
 
-Nothing refuses a bare suppression today. `nolintlint` is the analyser that would,
-and enabling it is #126.
+`nolintlint` refuses that. A suppression naming no analyser reds the style gate,
+and so does one that names an analyser and gives no reason. It also reports a
+suppression that no longer silences anything, which is the failure the convention
+above cannot catch by reading: the finding was fixed, the comment stayed, and it
+now covers whatever lands on that line next.
 
 ## How large a change should be
 
