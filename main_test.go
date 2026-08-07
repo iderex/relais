@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"runtime/debug"
 	"strings"
 	"testing"
@@ -66,6 +67,20 @@ func TestVersionHandlesBuildInformationWithNoRevision(t *testing.T) {
 
 	if !strings.Contains(got, "revision unknown") {
 		t.Errorf("version() = %q, want the revision reported as unknown", got)
+	}
+}
+
+// failingWriter refuses every write, which is what a closed or full destination
+// looks like from here.
+type failingWriter struct{}
+
+func (failingWriter) Write([]byte) (int, error) {
+	return 0, errors.New("destination refused the write")
+}
+
+func TestRunReportsAFailedWrite(t *testing.T) {
+	if code := run(failingWriter{}); code == 0 {
+		t.Error("run() = 0 on a destination that refused the write, want a non-zero code")
 	}
 }
 
