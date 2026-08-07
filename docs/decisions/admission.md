@@ -35,10 +35,14 @@ written.
 
 There is no mechanism for this today. It is a rule that a person enforces by
 reading a change, and nothing in the tree refuses a credential with a name in it.
-The issue that would give it one is opened alongside this record and named here so
-the gap is visible rather than assumed closed. Until that issue lands, this
-paragraph is the whole of the enforcement, and it should be read as weaker than
-the sentence above it sounds.
+Issue #124 is open for the mechanism and is named here so the gap is visible
+rather than assumed closed. Until it lands, this paragraph is the whole of the
+enforcement, and it should be read as weaker than the sentence above it sounds.
+
+The shape that issue takes is a closed set of permitted claims with everything
+else refused, rather than a list of forbidden fields, because the prohibition is
+about meaning and not about shape: an opaque participant identifier and an
+account identifier are the same bytes.
 
 ## How long it is valid
 
