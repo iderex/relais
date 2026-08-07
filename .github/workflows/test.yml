@@ -40,13 +40,6 @@ jobs:
     permissions:
       contents: read
 
-    # Deliberate and temporary. It gives the job a display so that the assertion
-    # below has something to find, which is the only way to show that the
-    # assertion bites rather than passing because the runner happens to be bare.
-    # The commit after the run removes it.
-    env:
-      DISPLAY: ":99"
-
     steps:
       - name: Checkout Repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
