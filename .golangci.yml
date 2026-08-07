@@ -1,0 +1,43 @@
+# The linter set, its configuration, and the three legs of the style gate.
+#
+# One command runs all three, locally and on the server: `golangci-lint run`.
+# Formatting is checked by the formatter below, the language's own correctness
+# vetting is the govet linter, and the rest is the chosen set. There is no second
+# command to remember and no leg that only runs in one of the two places.
+#
+# The set is deliberately small. A set that is too large produces a backlog nobody
+# clears and teaches everyone to ignore the check; a set that is too small catches
+# nothing. Every entry below is here because the class it catches turns into a
+# defect in a long-lived network service, and each one is named with that reason in
+# the pull request that landed this file.
+version: "2"
+
+linters:
+  # Start from nothing and name every linter, so the set is what this file says it
+  # is rather than whatever the default happened to be in the version installed.
+  default: none
+  enable:
+    # The language's own correctness vetting. The issue asks for it by name, and it
+    # is the one leg here that is not a matter of taste.
+    - govet
+    # Unchecked errors. This is a service whose whole job is to keep running while
+    # things fail around it, and an ignored error is how a forwarding loop keeps
+    # going with a connection it has already lost.
+    - errcheck
+    # Correctness, simplification and staleness in one analyser. It catches the
+    # class where the code says something other than what it does, which is the
+    # class a reviewer is worst at.
+    - staticcheck
+    # Assignments whose result is never read. Almost always either a leftover from
+    # an edit or the wrong variable assigned, and the second one is a real bug.
+    - ineffassign
+    # Unused identifiers. Dead code in a security-relevant path is worse than
+    # useless, because it reads as though something is handled.
+    - unused
+
+formatters:
+  enable:
+    # The formatting leg. gofmt rather than a stricter formatter, because the
+    # argument this ends is about whether the tree is formatted at all, and the
+    # toolchain's own answer is the one nobody has to be persuaded of.
+    - gofmt

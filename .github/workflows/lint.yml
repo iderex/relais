@@ -1,0 +1,65 @@
+# The style gate: formatting, the language's own correctness vetting, and the
+# chosen linter set. Three legs, one command, and the same command locally.
+#
+# Formatting arguments are a tax on every future review, and the cheapest moment
+# to end them is before there is code to reformat. This is that moment: the tree
+# holds one package.
+#
+# The linter set and the reason for each entry are in .golangci.yml, which is a
+# tracked file rather than a runner default, so a run here and a run on a
+# contributor's machine judge by the same rules.
+#
+# Hardened the same way as the other workflows here: actions SHA-pinned with a
+# version comment, checkout with persist-credentials false, permissions denied at
+# the top level and granted only on the job.
+name: Lint
+
+on:
+  pull_request:
+    branches: ["**"]
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The check-run name this produces is quoted literally by the branch protection
+  # request in #29, the same as the build gate, so it changes only together with
+  # that issue.
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up the toolchain
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # Read from go.mod, the same single place the build gate reads it from.
+          go-version-file: go.mod
+          check-latest: false
+          # No third-party dependency yet, so no go.sum for a cache key to hash.
+          # Comes back with the lock file in #20.
+          cache: false
+
+      - name: Run formatting, vetting and linting
+        uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
+        with:
+          # Pinned rather than floating: a linter that changes under the tree turns
+          # an unrelated pull request red for a rule nobody chose.
+          version: v2.12.2
+          # The action's invocation is `golangci-lint run`, which is the same
+          # command CONTRIBUTING documents for a local run. Nothing is added here
+          # that a contributor could not reproduce.
+          args: ""
