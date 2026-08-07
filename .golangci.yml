@@ -34,6 +34,28 @@ linters:
     # Unused identifiers. Dead code in a security-relevant path is worse than
     # useless, because it reads as though something is handled.
     - unused
+    # The suppression comments themselves, which no other analyser here reads. A
+    # bare `//nolint` silences every one of the linters above, including findings
+    # that did not exist when it was written, and it outlives whatever reason
+    # somebody had for it. That is the case that matters: the comment stays, the
+    # reason does not, and nothing in the tree can tell the difference.
+    - nolintlint
+
+  settings:
+    nolintlint:
+      # A suppression names the analyser it silences. Without this, `//nolint` is
+      # a blanket over everything, and the next analyser added to the set above
+      # arrives already silenced at that line.
+      require-specific: true
+      # ...and gives the reason on the same line. The reason is what a reviewer
+      # judges, and a suppression with none can only be judged by whether the
+      # code looks fine, which is what the analyser was for.
+      require-explanation: true
+      # A suppression that no longer silences anything is reported rather than
+      # left in place. This is the failure the convention cannot catch by
+      # reading: the finding was fixed, the comment was not removed, and it now
+      # covers whatever lands on that line next.
+      allow-unused: false
 
 formatters:
   enable:
