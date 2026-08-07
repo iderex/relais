@@ -75,3 +75,33 @@ jobs:
 
       - name: Build every package
         run: go build ./...
+
+      # An operator running this on their own hardware is the person who has to
+      # answer a vulnerability question about it, and they cannot do that from a
+      # binary alone. The bill of materials is how they answer it without reading
+      # this repository.
+      #
+      # It is produced by the build rather than beside it: the binary below is the
+      # one the previous step's compiler settings produce, and the document
+      # describes that artefact rather than a separate scan of the source tree
+      # that might disagree with it.
+      - name: Build the binary the document describes
+        run: go build -o relais .
+
+      - name: Produce the bill of materials
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          # The compiled binary, not the directory. A binary carries the module
+          # graph the toolchain actually linked, so the document cannot claim a
+          # dependency that was resolved away or miss one that was pulled in.
+          file: relais
+          # SPDX, because it is the ISO-standardised format of the two common ones
+          # and an operator is more likely to have something that reads it. The
+          # JSON encoding rather than the tag-value one, because the consumer here
+          # is a tool.
+          format: spdx-json
+          artifact-name: relais-sbom.spdx.json
+          # Do not attach it to a release from this workflow. This gate runs on
+          # every pull request, and publishing belongs to the release route in
+          # #113.
+          upload-release-assets: false
