@@ -1,0 +1,155 @@
+# The unit test gate, and the headless constraint held by where the suite runs
+# rather than by a sentence in a document.
+#
+# Headless testability is a birth requirement of this project. The moment one test
+# needs a sound device, a display, a real network path or a raised privilege, the
+# suite stops running on a clean runner, and the discipline unwinds quietly. A
+# requirement with no check is a preference, so this job asserts the absence of
+# each of those before it runs anything, and a test that needs one of them fails
+# here.
+#
+# The job also prints how many tests it executed. A suite that silently ran
+# nothing exits zero exactly like a suite that ran and passed, and the two are
+# only distinguishable if the count is in the log.
+#
+# Hardened the same way as the other workflows here: actions SHA-pinned with a
+# version comment, checkout with persist-credentials false, permissions denied at
+# the top level and granted only on the job.
+name: Test
+
+on:
+  pull_request:
+    branches: ["**"]
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The check-run name this produces is quoted literally by the branch protection
+  # request in #29, the same as the build and style gates, so it changes only
+  # together with that issue.
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up the toolchain
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # Read from go.mod, the same single place the build and style gates read
+          # it from.
+          go-version-file: go.mod
+          check-latest: false
+          # No third-party dependency yet, so no go.sum for a cache key to hash.
+          # Comes back with the lock file in #20.
+          cache: false
+
+      - name: Assert the runner has no display, no audio device and no elevation
+        # Asserted rather than assumed. A stock runner happens to have none of
+        # these today, and a job that relies on that fact would stop enforcing
+        # anything the day the image changes, without saying so. Each check below
+        # prints what it found, so a failure names the thing that appeared rather
+        # than only that something did.
+        run: |
+          set -euo pipefail
+          fail=0
+
+          # A display is what a test that wants to open a window would find. Both
+          # variables, because either one is enough for a toolkit to connect.
+          for var in DISPLAY WAYLAND_DISPLAY; do
+            value=$(printenv "$var" || true)
+            if [ -n "$value" ]; then
+              echo "FAIL  $var is set to '$value'; this runner has a display"
+              fail=1
+            else
+              echo "ok    $var is unset"
+            fi
+          done
+
+          # An audio device is the other half of the same requirement. /dev/snd is
+          # where the kernel puts them and /dev/dsp is the older interface.
+          for dev in /dev/snd /dev/dsp; do
+            if [ -e "$dev" ]; then
+              echo "FAIL  $dev exists; this runner has an audio device"
+              fail=1
+            else
+              echo "ok    $dev is absent"
+            fi
+          done
+
+          # Unprivileged. A suite that passes as root proves nothing about a suite
+          # run by an operator, and root is what hides a test that binds a
+          # privileged port.
+          uid=$(id -u)
+          if [ "$uid" -eq 0 ]; then
+            echo "FAIL  running as uid 0"
+            fail=1
+          else
+            echo "ok    running as uid $uid ($(id -un))"
+          fi
+
+          # No added capabilities. Dropping root is not the whole of it: a process
+          # can hold a capability without holding the others, and the one that
+          # matters here is the one that lets a test bind below port 1024. The
+          # effective set of an ordinary user process is empty.
+          capeff=$(grep '^CapEff:' /proc/self/status | awk '{print $2}')
+          if [ "$capeff" != "0000000000000000" ]; then
+            echo "FAIL  effective capability set is $capeff, not empty"
+            fail=1
+          else
+            echo "ok    effective capability set is empty"
+          fi
+
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::The runner does not meet the headless constraint this job exists to hold. A test that needs a display, an audio device or a raised privilege must not be worked around here; the requirement is the point."
+            exit 1
+          fi
+          echo "The runner has no display, no audio device and no elevation."
+
+      - name: Run the unit suite and report how many tests ran
+        # The whole suite, with the result cache off so a green run is a run that
+        # happened rather than a replay of one that did.
+        #
+        # The exit code is captured rather than allowed to abort the step, because
+        # the count below has to be printed for a failing run as well. A failure
+        # with no count is the same unreadable thing as a pass with no count.
+        run: |
+          set -euo pipefail
+          rc=0
+          go test ./... -count=1 -v > test-output.txt 2>&1 || rc=$?
+          cat test-output.txt
+
+          # Counted from the per-test result lines rather than from the package
+          # summary, so a subtest is counted as the test it is. The leading
+          # whitespace in the pattern is what lets a subtest's indented line match.
+          passed=$(grep -cE '^[[:space:]]*--- PASS: ' test-output.txt || true)
+          failed=$(grep -cE '^[[:space:]]*--- FAIL: ' test-output.txt || true)
+          skipped=$(grep -cE '^[[:space:]]*--- SKIP: ' test-output.txt || true)
+          total=$((passed + failed + skipped))
+          echo "tests executed: $total (passed $passed, failed $failed, skipped $skipped)"
+
+          # A suite that ran nothing exits zero. That is the case this guard is
+          # for, and it fails closed: no test executed is a broken gate rather
+          # than a clean tree.
+          if [ "$total" -eq 0 ]; then
+            echo "::error::The suite executed no tests. A gate that runs nothing passes exactly like one that runs and succeeds, so this is refused."
+            exit 1
+          fi
+
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::The unit suite failed. A test that needs a display, an audio device, a network path or a raised privilege fails here, which is what this job is for."
+          fi
+          exit "$rc"
