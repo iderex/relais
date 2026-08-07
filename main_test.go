@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"runtime/debug"
 	"strings"
 	"testing"
@@ -79,6 +80,8 @@ func (failingWriter) Write([]byte) (int, error) {
 }
 
 func TestRunReportsAFailedWrite(t *testing.T) {
+	// Deliberate, to show the vetting leg reds. Undone by the next commit.
+	_ = fmt.Sprintf("%d", "not a number")
 	if code := run(failingWriter{}); code == 0 {
 		t.Error("run() = 0 on a destination that refused the write, want a non-zero code")
 	}

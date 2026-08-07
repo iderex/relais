@@ -63,5 +63,5 @@ func run(out io.Writer) int {
 }
 
 func main() {
-    os.Exit(run(os.Stdout))
+	os.Exit(run(os.Stdout))
 }
