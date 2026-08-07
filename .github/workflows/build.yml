@@ -1,0 +1,77 @@
+# The build gate. It compiles every package in the tree from a clean checkout on a
+# stock runner and reds on a compilation failure.
+#
+# This is the first check here that can fail for a reason belonging to this
+# project rather than to its workflows, and every later check assumes it: a lint
+# result, a test result and a coverage number are all meaningless on a tree that
+# does not compile.
+#
+# Go has no warning tier to decide about. The things other languages warn on, an
+# unused import or an unused local, are already refusals in this compiler, so the
+# "treat it as an error rather than accumulating a backlog" decision has no
+# surface at this step. The remaining class is what `go vet` and the linter set
+# judge, and that is a separate gate with its own decision to record (#19).
+#
+# Hardened the same way as the other workflows here: actions SHA-pinned with a
+# version comment, checkout with persist-credentials false, permissions denied at
+# the top level and granted only on the job.
+name: Build
+
+on:
+  pull_request:
+    branches: ["**"]
+  push:
+    branches: [main]
+
+# Deny by default; the job takes only what it needs.
+permissions: {}
+
+# A newer push on the same ref supersedes an in-flight run. Compiling is
+# idempotent and cheap to repeat, so cancelling a superseded run is safe.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The check-run name this produces is quoted literally by the branch protection
+  # request in #29. A required check that names a job which was renamed is worse
+  # than no requirement at all, so this name changes only together with that
+  # issue.
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Nothing here pushes, so do not leave the token in .git/config.
+          persist-credentials: false
+
+      - name: Set up the toolchain
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # Read from go.mod rather than repeated here. There is one place the
+          # toolchain version is written, so a bump cannot leave a second copy
+          # behind to drift against it.
+          go-version-file: go.mod
+          # Do not silently move to a newer release than go.mod asks for; the
+          # point of reading the file is that the file decides.
+          check-latest: false
+          # The tree has no third-party dependency and therefore no go.sum for a
+          # cache key to hash. Turn the cache off explicitly rather than let the
+          # step fail looking for a file that is absent by design. This comes back
+          # with the lock file in #20.
+          cache: false
+
+      - name: Report the toolchain actually used
+        # Printed rather than asserted: the run says which version compiled the
+        # tree, so a claim about the pin can be checked against the log instead of
+        # against the workflow file.
+        run: go version
+
+      - name: Build every package
+        run: go build ./...
