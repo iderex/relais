@@ -1,0 +1,92 @@
+# Static analysis of the program, as distinct from the checks that look at the
+# repository around it.
+#
+# The tree already carries a workflow audit and a Unicode guard. Both read the
+# repository. This is the first analyser that reads what the program does, and it
+# is the first of two: a second analyser with a different lens is #88, in the
+# parity milestone, and this one does not pretend to be it.
+#
+# Findings go to the code scanning surface rather than only into a red run, so a
+# finding has somewhere to live between being raised and being dealt with. What
+# happens to one is triage rather than accumulation: it is fixed, or it is
+# suppressed at the site with the analyser named and the reason on the same line,
+# which is the convention in CONTRIBUTING.md and is refused by the style gate when
+# it is not followed.
+#
+# Hardened the same way as the other workflows here: actions SHA-pinned with a
+# version comment, checkout with persist-credentials false, permissions denied at
+# the top level and granted only on the job.
+name: Code scanning
+
+on:
+  pull_request:
+    branches: ["**"]
+  push:
+    branches: [main]
+  # A weekly run against the default branch. The analyser's own query set changes
+  # under a tree that has not, so a repository that only ever scans on a change
+  # stops learning about anything found after its last one.
+  schedule:
+    - cron: "41 5 * * 2"
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The check-run name this produces is quoted literally by the branch protection
+  # request in #29, the same as the build, style and test gates, so it changes
+  # only together with that issue.
+  codeql:
+    name: CodeQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      # Read the tree to analyse it.
+      contents: read
+      # Write the findings to the code scanning surface. This is the scope that
+      # makes the job more than a red run, and it is granted here rather than at
+      # the workflow level so nothing else in this file holds it.
+      security-events: write
+      # The analyser reads the workflow run it is part of in order to attribute
+      # the results to the right ref.
+      actions: read
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up the toolchain
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # Read from go.mod, the same single place every other gate reads it
+          # from. The analyser builds the tree to analyse it, and it has to build
+          # it with the toolchain this project declares rather than whichever one
+          # the image happened to ship.
+          go-version-file: go.mod
+          check-latest: false
+          cache: false
+
+      - name: Initialise the analyser
+        uses: github/codeql-action/init@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4.37.3
+        with:
+          languages: go
+          # The tree is built the ordinary way and the analyser watches the
+          # build. This is the mode that sees the code that actually compiles,
+          # rather than a best-effort read of the source.
+          build-mode: autobuild
+          # security-extended rather than the default set. This is a service that
+          # will take bytes from strangers, and the queries that separate the two
+          # sets are the ones about data reaching a dangerous place. The cost is a
+          # longer run and more findings to triage, and it is paid now while there
+          # is almost no code, rather than later when the backlog arrives at once.
+          queries: security-extended
+
+      - name: Analyse
+        uses: github/codeql-action/analyze@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4.37.3
+        with:
+          category: codeql-go
