@@ -5,9 +5,10 @@
 // binary that actually builds from a clean checkout, so this file exists to make
 // the decision checkable rather than asserted.
 //
-// It sits at the module root on purpose, which is the absence of a layout
-// decision rather than one. Where the entry point finally belongs is settled
-// separately, and nothing here should be read as having settled it.
+// It sits under cmd/ because the layout in docs/architecture.md puts every
+// executable there and keeps the packages that do the work under internal/. This
+// package is allowed to depend on any of them and nothing is allowed to depend
+// on it, which is what makes it the place where the parts are wired together.
 package main
 
 import (
