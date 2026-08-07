@@ -3,7 +3,12 @@ what was wrong and how it was found.
 
 ## The issue this closes
 
-    Closes #
+Closes #
+
+The line above is left unindented and outside any code block on purpose. GitHub
+does not read a closing keyword inside one, so an indented `Closes #` looks like
+a link to a reader and does nothing on merge, which is how a finished issue stays
+open with a merged pull request pointing at it.
 
 One topic per pull request. A change that closes nothing is a change nobody
 agreed to first, and the contribution guide asks for the issue before the work.
