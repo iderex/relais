@@ -1,0 +1,39 @@
+# Line endings and text encoding, fixed before there is content to convert.
+#
+# Contributors arrive from three operating systems. Without a stated rule the tree
+# accumulates mixed line endings, and the first casualty is any test whose input
+# has to be byte-exact, which in a project that parses protocol frames is most of
+# the interesting ones.
+#
+# This is not the same rule as the Unicode guard in
+# .github/workflows/unicode-guard.yml, and the two are easy to confuse because
+# both are about bytes in text. The guard refuses bidirectional and invisible
+# control characters, which is text that renders differently from how it parses:
+# bytes that lie. This file is about bytes changing under the contributor between
+# one checkout and the next. Neither covers the other, and a tree can fail either
+# one on its own.
+
+# Every text file is normalised to LF in the repository and checked out with LF on
+# every platform.
+#
+# `eol=lf` rather than `text=auto` alone is the part that does the work here. With
+# `text=auto` alone the repository stays clean and a checkout on Windows still
+# produces CRLF working files, which is what made `gofmt` and `golangci-lint run`
+# report every file in this tree as unformatted on that platform while the same
+# command passed on the runner, for a reason having nothing to do with the change
+# being made. Contributors are not asked to set core.autocrlf to work around it,
+# because a rule that lives in each contributor's local git config is a rule no
+# clone carries.
+* text=auto eol=lf
+
+# The one exception, and the reason for it.
+#
+# Go's convention puts test inputs under testdata/. Those are bytes a test asserts
+# against, so a file whose line endings were rewritten on the way in or out is a
+# test that passes against the wrong input, or fails for a reason no one can see in
+# a diff. `-text` turns normalisation off entirely for that tree: the bytes that
+# were committed are the bytes that are checked out, on every platform.
+#
+# It costs readable diffs on those files, which is the right trade. A fixture whose
+# diff is readable is a fixture whose bytes are negotiable.
+testdata/** -text
