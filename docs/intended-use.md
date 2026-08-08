@@ -107,10 +107,12 @@ is responsible for what.
 ## What this document does not do
 
 It does not restrict use. The licence decides what anybody may do with this
-software, and there is no licence file yet:
+software, and the licence is AGPL-3.0:
 
     git ls-files LICENSE | wc -l
-    0
+    1
 
-That is entry 1 of issue #1 and it is open. Until it is answered this document
-states an intent and nothing more, and it should not be read as a term.
+That was entry 1 of issue #1, answered by the maintainer on 2026-08-08. The
+terms are in [LICENSE](../LICENSE) and they are the only thing here that
+restricts anything. This document still states an intent and nothing more, and it
+should not be read as a term.
