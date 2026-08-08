@@ -98,9 +98,13 @@ credential admits and nothing narrows what the holder may then do, which is a re
 gap and not a theoretical one.
 
 Personal data entering this service through a credential. Against it: the
-admission record forbids it, and #124 is the mechanism that would refuse it. The
-mechanism does not exist, so this is a rule enforced by a person reading a change.
-An operator should read that as weaker than the record's sentence sounds.
+admission record forbids it, and verification refuses a credential carrying any
+claim outside the set that record permits, naming the claim it refused. That
+covers a claim nobody agreed to and nothing else. A permitted claim carrying
+something it should not, an account identifier in the participant field, is the
+same bytes as an opaque label and no check reaches it, so for that case this is
+still a rule enforced by a person reading a change. An operator should read that
+as weaker than the record's sentence sounds.
 
 Conversation content leaking into logs, metrics or a bug report. Against it: logs
 that carry no conversation content, #82; secrets handled so they cannot reach a
@@ -170,7 +174,9 @@ they are not is a different product.
 Listed separately because a reader skimming the sections above should not have to
 assemble it.
 
-Nothing refuses a credential carrying personal data. #124.
+Nothing refuses personal data placed in a claim a credential is permitted to
+carry. A claim outside the permitted set is refused; an account identifier in the
+participant field is the same bytes as an opaque label and is not.
 
 Nothing limits the rate or size of anything arriving at the edge. #50.
 

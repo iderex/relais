@@ -89,8 +89,11 @@ func (v *Verifier) Verify(token string, room mediaplane.RoomID) (Grant, error) {
 		return Grant{}, refuse(ReasonSignature, "the signature does not hold under this host's verifying key")
 	}
 
-	var p payload
-	if err := decodeJSON("payload", payloadSegment, &p); err != nil {
+	// The claim set is read after the signature holds, so what it judges is what
+	// the issuing service actually put in a credential rather than what a stranger
+	// asked this host to look at.
+	p, err := decodePayload(payloadSegment)
+	if err != nil {
 		return Grant{}, err
 	}
 	if p.ID == "" || p.Room == "" || p.Participant == "" {

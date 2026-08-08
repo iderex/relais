@@ -33,16 +33,22 @@ and crash output by default, on the first join, before anybody has decided that 
 should be there. No later redaction gets it back out of what has already been
 written.
 
-There is no mechanism for this today. It is a rule that a person enforces by
-reading a change, and nothing in the tree refuses a credential with a name in it.
-Issue #124 is open for the mechanism and is named here so the gap is visible
-rather than assumed closed. Until it lands, this paragraph is the whole of the
-enforcement, and it should be read as weaker than the sentence above it sounds.
+The mechanism is a closed set of permitted claims with everything else refused,
+rather than a list of forbidden fields, because the prohibition is about meaning
+and not about shape: an opaque participant identifier and an account identifier
+are the same bytes. `permittedClaims` in `internal/orchestration/credential` is
+the set, verification refuses a credential carrying anything outside it, and the
+refusal names the claim so that the service that issued it has something to
+repair.
 
-The shape that issue takes is a closed set of permitted claims with everything
-else refused, rather than a list of forbidden fields, because the prohibition is
-about meaning and not about shape: an opaque participant identifier and an
-account identifier are the same bytes.
+What that does not do is the half the paragraph above is really about, and it is
+written here rather than left to be discovered. The check reads names and never
+meanings. A credential whose `participant` field carries an account identifier is
+permitted in shape and forbidden by this record, and nothing in the tree can tell
+that apart from an opaque label, because they are the same bytes. So the rule is
+enforced against a claim nobody agreed to and unenforced against a permitted claim
+carrying the wrong thing, and the second case is still a rule a person applies by
+reading a change.
 
 ## How long it is valid
 

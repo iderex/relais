@@ -317,18 +317,52 @@ func TestAVerifyOnlyConfigurationCannotMint(t *testing.T) {
 	}
 }
 
-// TestACredentialCarryingAFieldNobodyDefinedDoesNotParse is the floor under the
-// prohibition on personal data. It is not the closed set of permitted claims that
-// issue #124 owes: this only says an unlisted field fails to decode.
-func TestACredentialCarryingAFieldNobodyDefinedDoesNotParse(t *testing.T) {
+// permittedPayload is the claim set of a credential that carries nothing but what
+// the admission record permits. The two tests below are this payload with and
+// without one extra claim, so what separates them is the claim and not the
+// credential.
+const permittedPayload = `"id":"x","room":"room-1","participant":"p","powers":[],"notBefore":1772366400,"expiresAt":1772366460`
+
+// TestACredentialCarryingAClaimOutsideTheSetIsRefused is the prohibition on
+// personal data, enforced. Deleting the claim-set check in decodePayload turns this
+// red, and it does so by accepting the credential rather than by refusing it for
+// another reason: without the check the display name is dropped by the structure
+// that has no field for it, and a dropped display name is a credential admitted.
+func TestACredentialCarryingAClaimOutsideTheSetIsRefused(t *testing.T) {
 	token := forge(
 		`{"alg":"Ed25519"}`,
-		`{"id":"x","room":"room-1","participant":"p","powers":[],"notBefore":1772366400,"expiresAt":1772366460,"displayName":"a person"}`,
+		`{`+permittedPayload+`,"displayName":"a person"}`,
 		ed25519.NewKeyFromSeed(issuerSeed),
 	)
 
-	if got := refusalFor(t, verifierAt(t, theMoment), token, "room-1"); got != ReasonMalformed {
-		t.Errorf("a credential carrying a display name was refused as %q, want %q", got, ReasonMalformed)
+	_, err := verifierAt(t, theMoment).Verify(token, "room-1")
+	var r *Refusal
+	if !errors.As(err, &r) {
+		t.Fatalf("a credential carrying a display name produced %v, which is not a Refusal", err)
+	}
+	if r.Reason != ReasonUnpermittedClaim {
+		t.Errorf("it was refused as %q, want %q", r.Reason, ReasonUnpermittedClaim)
+	}
+	// The reason routes and the detail is what an operator reads, so the claim has
+	// to be in it. A refusal that says a credential carried something it may not,
+	// without saying what, leaves the issuer nothing to fix.
+	if !strings.Contains(r.Detail, `"displayName"`) {
+		t.Errorf("the refusal does not name the claim it refused: %s", r.Detail)
+	}
+}
+
+// TestTheSameCredentialWithoutThatClaimIsAccepted is the other half, and it is what
+// makes the test above about the claim. Same issuer, same room, same window, same
+// clock, one claim fewer.
+func TestTheSameCredentialWithoutThatClaimIsAccepted(t *testing.T) {
+	token := forge(
+		`{"alg":"Ed25519"}`,
+		`{`+permittedPayload+`}`,
+		ed25519.NewKeyFromSeed(issuerSeed),
+	)
+
+	if _, err := verifierAt(t, theMoment).Verify(token, "room-1"); err != nil {
+		t.Fatalf("a credential carrying only permitted claims was refused: %v", err)
 	}
 }
 
