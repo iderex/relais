@@ -27,6 +27,14 @@ participants, no moderation policy, no bot vocabulary, no client concern and no
 identity federation. The one place the boundary is close is stopping a track,
 which is a mechanical operation here and carries no rule about who may ask for it.
 
+Checked against [the media formats record](../decisions/media-formats.md): this
+contract carries the room's format set outward, carries the format of each track,
+and names the refusal a format outside a room's set produces. It asks this project
+to convert nothing, and nothing below offers a subscriber a stream in a format its
+publisher did not send. That record's list of formats is not restated here, because
+the list grows by a change to that record and a copy of it in this document would
+drift from the day it was written.
+
 ## The resources
 
 Four, and every one of them exists only while the media it describes exists. None
@@ -37,7 +45,9 @@ caller when the room is opened, so the caller can address the room before this
 project has answered. It exists from the moment it is opened until it is closed,
 and closing it is the only way it disappears. It holds no memory of who was in it,
 and a second room opened under the same identifier after the first was closed is a
-different room that happens to share a name.
+different room that happens to share a name. It carries a format set, described
+below, which is part of its description from the moment it is opened and is
+readable before anybody has joined.
 
 A participant. One connected session. Its identifier is minted by the caller and
 is opaque here, which [the admission record](../decisions/admission.md) fixes and
@@ -51,7 +61,17 @@ A track. One media stream from one participant. Its identifier is minted by this
 project, not by the caller, because a track names something only the media side can
 observe. It exists from the moment the publisher's stream appears until it ends or
 its publisher leaves. It carries a description: which participant published it,
-whether it is audio or video, and the layers currently available.
+whether it is audio or video, the format it is in, and the layers currently
+available.
+
+The format is in the description because the kind does not carry it and nothing
+else in the description does. Two video tracks in one room can be in two different
+formats, both inside the room's set, and the layers each one reports are structured
+by its format rather than by a shape common to all of them, so a consumer reading a
+track's layers without knowing its format is reading a structure whose meaning it
+has not fixed. It is also what a consumer needs to say why a particular track is
+not playing, which is the diagnostic issue #62 owns, and it is what shows that a
+publisher stayed inside the set the room was opened with.
 
 A subscription. One subscriber receiving one track at one target. Its identifier is
 minted by the caller for the same reason a room's is. It exists from the moment it
@@ -61,6 +81,46 @@ and the events say which.
 
 A layer is not a resource. It is part of a track's description, named by this
 project, and a caller addresses it only inside a subscription target.
+
+### The room's format set
+
+The set of media formats a room carries. A publisher may only publish inside it, a
+participant that cannot handle it is refused at join rather than left in a room
+that stays quiet, and nothing is converted to bring anything into it, which is the
+media formats record's position and not this document's to soften.
+
+The caller supplies the set when it opens the room, and this decides the question
+issue #141 left open rather than assuming an answer. Three reasons, in the order
+they carry weight.
+
+A room exists before any participant does. A set derived from the first join would
+mean the room has no set until somebody arrives, so the earliest joiner would fix
+what every later one is judged against, by accident and by being first. The caller
+that opened the room would have no way to say what it wanted and no way to read
+what it got until the outcome was already decided.
+
+The caller is the only party that knows what its participants can do. It holds the
+identity and the client population; this project holds neither and, under the seam
+record, may not learn either. Deriving the set here would mean this project
+reasoning about the software a person is running, which is a client concern the
+seam refuses.
+
+A consuming service has to be able to tell somebody what a room needs before they
+join. That is a read on the room, answered from the moment it is opened, and it is
+only possible if the set was fixed there.
+
+The set is a non-empty subset of the formats in the media formats record. A set
+naming a format that is not in that record is refused when the room is opened, with
+`format-unsupported`, because a room whose set this project cannot carry is a room
+in which the first publisher would be refused for a reason the caller could have
+been told at the start.
+
+The set does not change over a room's lifetime. There is no operation that widens
+or narrows it, and this is a decision rather than an omission: narrowing it would
+strand publishers already inside the room, and widening it would admit a publisher
+whose format the participants admitted earlier were never judged against. A caller
+that wants a different set closes the room and opens another, which the resource
+description above already says is a different room.
 
 ## The operations
 
@@ -78,12 +138,18 @@ below, not a second request that happens to look similar.
 
 ### Open a room
 
-Creates the room. Idempotent by room identifier: a repeat naming a room that is
-already open and was opened by the same caller succeeds and creates nothing. A
-repeat naming a room identifier that is open under different parameters fails with
-`already-exists`, because silently returning success would tell the caller its
-parameters took effect when they did not. A retry after a failure of class
-`transient` is safe and is the intended response to it.
+Creates the room, with the format set the caller supplies. Idempotent by room
+identifier: a repeat naming a room that is already open and was opened by the same
+caller succeeds and creates nothing. A repeat naming a room identifier that is open
+under different parameters fails with `already-exists`, because silently returning
+success would tell the caller its parameters took effect when they did not. The
+format set is one of those parameters, so a repeat naming the same room with a
+different set fails the same way rather than replacing the set a live room is
+running under.
+
+A set naming a format this project does not carry fails with `format-unsupported`,
+and the failure names the formats that were not carried. A retry after a failure of
+class `transient` is safe and is the intended response to it.
 
 ### Close a room
 
@@ -196,7 +262,11 @@ section and is deliberately weaker than "everything".
 The stream carries what this project observed. It never carries a request, and
 nothing a caller does answers an event.
 
-A session attached. A session detached, with the reason.
+A session attached. A session detached, with the reason. `format-refused` is one of
+the reasons that arrives here rather than in a reply, because the offer it refuses
+is made by the participant's software and not by the caller, and it is how a
+consuming service learns at join that somebody cannot take part instead of learning
+it from a room that never carries anything.
 
 A track appeared, with its description. A track's layers changed, with the new
 description, which is one event rather than a layer appearing and a layer
@@ -278,11 +348,35 @@ one to this document first.
 | `unavailable` | `transient` | this project cannot answer right now, and the answer is absent rather than negative |
 | `rate-limited` | `transient` | the caller is sending faster than the limit allows |
 | `closing` | `refused` | the room, or this project, is shutting down |
+| `format-unsupported` | `caller` | a format named in the room's set is not one this project carries |
 | `refused-by-media` | `refused` | the request contradicts what the media side observes, a named layer the track does not report being the ordinary instance |
+| `format-refused` | `refused` | the offer at negotiation is outside the room's format set, which the refusal names |
 | `clock-skew` | `refused` | the credential's times and this host's clock did not line up |
 | `unsupported-version` | `refused` | the caller asked for a version this project does not serve |
 
-Three notes on the set, each of which is a decision rather than a detail.
+Five notes on the set, each of which is a decision rather than a detail.
+
+The two format reasons are separate from each other and from `refused-by-media`.
+`format-unsupported` answers a caller that named a format this project does not
+carry when it opened a room, and the repair is in the request, which is what makes
+it class `caller`. `format-refused` answers an offer at negotiation that fell
+outside a room's set, and the room's set was well formed and accepted. Collapsing
+the two would leave a caller unable to tell a set it should not have asked for from
+a participant that turned up with the wrong software.
+
+Neither is `refused-by-media`, which is about what the media side observes, a
+subscription naming a layer the track does not report being its instance. A format
+outside a room's set contradicts a set the caller itself supplied rather than
+anything this project observed, and it is refused before a packet arrives.
+
+`format-refused` is class `refused` rather than `caller`, which is the reading that
+takes the most care. Something does have to change, but it is not in the caller's
+request and no version of that request fixes it: the media formats record rules out
+converting, so this project will not carry the offer under any wording. The repair
+is upstream of the caller, in what the participant's software offers, and the
+refusal names the accepted set so the caller can pass that on. A caller that reads
+the class and stops is doing the right thing; a caller that reads `caller` and
+retries would be sending the same offer forever.
 
 `clock-skew` is separate from `credential-invalid` and is class `refused` rather
 than `caller`, which looks wrong until the repair is considered. The caller's
