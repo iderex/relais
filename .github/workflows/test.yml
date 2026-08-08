@@ -12,6 +12,14 @@
 # nothing exits zero exactly like a suite that ran and passed, and the two are
 # only distinguishable if the count is in the log.
 #
+# And it holds the suite to a wall-clock budget. A deterministic suite is a fast
+# one, so the seconds this job takes are the cheapest available reading on
+# whether the three properties in test/determinism are still being honoured in
+# spirit as well as in letter: a test that waits on something real costs seconds
+# that no amount of table-reading would have caught. The number is printed on
+# every run so a regression is visible rather than inferred, and the budget is
+# below.
+#
 # Hardened the same way as the other workflows here: actions SHA-pinned with a
 # version comment, checkout with persist-credentials false, permissions denied at
 # the top level and granted only on the job.
@@ -119,17 +127,37 @@ jobs:
           fi
           echo "The runner has no display, no audio device and no elevation."
 
-      - name: Run the unit suite and report how many tests ran
+      - name: Run the unit suite, report how many tests ran and hold it to its budget
         # The whole suite, with the result cache off so a green run is a run that
         # happened rather than a replay of one that did.
         #
         # The exit code is captured rather than allowed to abort the step, because
         # the count below has to be printed for a failing run as well. A failure
         # with no count is the same unreadable thing as a pass with no count.
+        env:
+          # The budget, in seconds, for the whole suite on a stock runner. It
+          # covers compiling the test binaries as well as running them, because
+          # that is what the seconds between a push and a verdict are made of.
+          #
+          # Sixty, against seven measured on this runner. The measurement and the
+          # run it came from are in the pull request that landed this step,
+          # rather than repeated here where a second copy would drift against the
+          # runs underneath it.
+          #
+          # The gap is deliberate and the two halves of this step do different
+          # jobs. The number printed on every run is what makes a small
+          # regression visible: seven becoming twenty is a change a reader can
+          # see and ask about. The budget is what refuses a gross one, and a
+          # budget set just above the observation would instead refuse an
+          # unrelated change on the day the runner is slow, which teaches people
+          # to re-run a check rather than read it.
+          SUITE_BUDGET_SECONDS: "60"
         run: |
           set -euo pipefail
           rc=0
+          started=$(date +%s)
           go test ./... -count=1 -v > test-output.txt 2>&1 || rc=$?
+          elapsed=$(( $(date +%s) - started ))
           cat test-output.txt
 
           # Counted from the per-test result lines rather than from the package
@@ -149,7 +177,21 @@ jobs:
             exit 1
           fi
 
+          # The wall clock, printed on every run whatever the verdict, so a later
+          # reader can see the number move rather than only see the day it went
+          # past the budget.
+          echo "unit suite wall clock: ${elapsed}s (budget ${SUITE_BUDGET_SECONDS}s)"
+
           if [ "$rc" -ne 0 ]; then
             echo "::error::The unit suite failed. A test that needs a display, an audio device, a network path or a raised privilege fails here, which is what this job is for."
+            exit "$rc"
           fi
-          exit "$rc"
+
+          # Reported after the suite's own verdict and never instead of it. A run
+          # that failed and was also slow is a failing run, and a budget message
+          # standing where a test failure belongs would send the reader to the
+          # wrong thing.
+          if [ "$elapsed" -gt "$SUITE_BUDGET_SECONDS" ]; then
+            echo "::error::The unit suite passed in ${elapsed}s against a budget of ${SUITE_BUDGET_SECONDS}s. The usual cause is a test that waits on something real; the repair is the seam that removes the wait rather than a larger number here."
+            exit 1
+          fi
