@@ -419,6 +419,148 @@ There is no timeout in the set. No operation waits on a participant's software, 
 no operation can time out. What times out is a subscription that never starts
 receiving media, and that is an event carrying its own reason.
 
+## Versioning, and what a change to this document costs
+
+Two projects are expected to build against this surface. The rules below are
+written while there is nothing to break, because the first time this document
+changes in a way nobody planned for, a consumer finds out by breaking.
+
+Recorded for issue #49.
+
+### How a version is expressed
+
+One integer, naming this document as a whole rather than an operation or a
+resource inside it. There is no minor number and no per-operation version.
+
+A second number would be a number a consumer negotiates on and then acts on, and
+acting on it is precisely what the tolerance rule below forbids: a consumer that
+branches on the minor version it was given has written the same code twice and
+will keep one of the two copies working. One integer leaves nothing to branch on.
+
+The version travels on every request rather than being agreed once, because a
+connection that carried an agreement is a thing this contract would then have to
+describe, and issue #47 has not decided there is one. Where the integer sits in
+the framing is that issue's to fix, and nothing here depends on the answer.
+
+This is not a release number. What a release number promises is issue #111, and
+the two move independently: a release can serve the same contract version as the
+one before it, and a contract version outlives many releases.
+
+### How a mismatch is reported
+
+A caller asking for a version this project does not serve gets
+`unsupported-version`, class `refused`.
+
+`refused` rather than `caller` is the deliberate half. Nothing the caller can put
+in the request fixes it. Either the caller is built against a version this
+deployment has retired, or against one it has not reached, and both repairs are
+outside the request: a different build of the consumer, or a different version of
+this service. A caller that read `caller` and retried with an altered request
+would be editing a request that was never the problem.
+
+The refusal names the versions this deployment serves, so a consumer built for
+several can pick one without a second round trip and an operator reading a log
+can see the distance between the two sides.
+
+### What is compatible
+
+A compatible change is one this project may make without a new version, and the
+list is exhaustive rather than a principle somebody applies:
+
+- adding an operation
+- adding a field to a response or to an event
+- adding an optional field to a request, where the request means the same thing
+  when the field is absent as it meant before the field existed
+- adding an event type
+- adding a reason to the error set, inside a class that already exists
+- widening what an existing field accepts, where every previously accepted value
+  keeps the meaning it had
+
+Adding is compatible only because of the obligation below. Without it, adding an
+event type breaks every consumer that treats an unrecognised event as a fault,
+and this surface could then never grow at all.
+
+Compatible is the second question a proposed addition answers.
+[The seam record](../decisions/seam.md) is the first. Nothing on that record's
+refuse list becomes addable by being optional and ignorable: a field carrying a
+display name is refused because this project does not hold one, and the rules
+here have nothing to say about it. An addition that survives the seam record is
+then measured against the list above.
+
+### What is breaking
+
+Also a list, and a change matching any entry needs a new version:
+
+- removing or renaming an operation, a field, an event type or an error reason
+- making an optional request field required
+- narrowing what a field accepts, including a value that was documented and never
+  produced
+- moving an error reason from one class to another
+- changing when an event is emitted, or the ordering and delivery rules above
+- changing an identifier's lifetime or its uniqueness rule
+
+The class move is the entry that looks like a detail and is not. The class is the
+field a caller routes on without reading prose, so moving a reason from `caller`
+to `refused` silently converts every consumer's retry loop into the wrong
+behaviour for that condition, and nothing in the exchange tells it that happened.
+
+### What is never done, at any version
+
+The meaning of a field is not changed while its name is kept.
+
+Version negotiation cannot protect a consumer against it. Both sides agree on the
+version, both sides read the same field, and they disagree about what it says,
+which is the one disagreement no integer in the request can surface. A field whose
+meaning has to change is a new field, and the old one is removed under the
+breaking rules above where it is removed at all.
+
+### What a consumer has to do
+
+Ignore what it does not recognise. From the first version, a consumer of this
+contract:
+
+- ignores a field it does not know, in a response and in an event, and passes on
+  or discards it rather than treating it as a fault
+- ignores an event type it does not know
+- routes an error reason it does not know on the error's class, which is a field
+  carried beside the reason for exactly this purpose and is a set that does not
+  grow
+
+That last one is the reason the class set is closed and the reason set is not. A
+consumer meeting `credential-invalid` for the first time can still decide what to
+do with it, because `caller` tells it. A consumer meeting a fourth class could
+not, which is why a class is never added compatibly and is not in the list above.
+
+A consumer that fails on the unknown is not a strict consumer. It is a consumer
+that has made every future addition to this document a breaking change, for
+itself and for the operator running it.
+
+### Retiring a version
+
+A version is announced as deprecated before it stops being served, and both
+versions are served for at least one hundred and eighty days from that
+announcement.
+
+The number follows from who runs this. An operator on their own hardware upgrades
+when they have time rather than when a schedule says so, and a consumer built by
+a small project is rebuilt when somebody is free to rebuild it. A period shorter
+than half a year means an operator who was away for a season returns to a service
+that stopped answering a consumer that was working when they left, having been
+told during the months they were not looking.
+
+The announcement carries the version being retired, the version replacing it, the
+date service ends, and what a consumer has to change. It appears in the release
+notes of the release that first announces it, and beside the version list in this
+document, which is the copy a consumer's author reads when they come back to this
+surface after a year. The issue tracker is not the announcement route: an issue is
+where the work is argued, not where somebody running this finds out that their
+consumer has a deadline.
+
+The date is not moved earlier. It is moved later where the operators or consumers
+reached ask for it, on the same reasoning as the period itself.
+
+A version whose deprecation was never announced is not retired, whatever its age.
+
 ## What this contract does not decide
 
 The transport and the framing this contract is carried over, which is issue #47.
@@ -428,9 +570,9 @@ expressed over one framing, this document has been written wrongly.
 The delivery semantics of the event stream beyond the three rules above, which is
 issue #48.
 
-Versioning and how a change to this document is announced and retired, which is
-issue #49. `unsupported-version` is in the set above so the shape exists from the
-start, and what a version is remains that issue's to decide.
+Whether a consumer actually tolerates what it does not recognise. The versioning
+section above places that obligation and cannot test it. The reference consumer
+that would demonstrate it is issue #51, and no consumer of this contract exists.
 
 The rate limits and size limits behind `rate-limited` and `too-large`, which is
 issue #50.
