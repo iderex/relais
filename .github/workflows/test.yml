@@ -135,16 +135,23 @@ jobs:
         # the count below has to be printed for a failing run as well. A failure
         # with no count is the same unreadable thing as a pass with no count.
         env:
-          # The budget, in seconds, for the whole suite on a stock runner.
+          # The budget, in seconds, for the whole suite on a stock runner. It
+          # covers compiling the test binaries as well as running them, because
+          # that is what the seconds between a push and a verdict are made of.
           #
-          # PROVISIONAL, and set below anything a suite can achieve on purpose.
-          # This job has never printed how long it takes, so there is no
-          # measurement to choose a budget from, and a number invented ahead of
-          # one would be a guard nobody had seen refuse anything. One is here so
-          # that the run landing this step is the run that measures the suite and
-          # the run that shows the step refusing. The next commit replaces it
-          # with a number chosen from what that run printed.
-          SUITE_BUDGET_SECONDS: "1"
+          # Sixty, against seven measured on this runner. The measurement and the
+          # run it came from are in the pull request that landed this step,
+          # rather than repeated here where a second copy would drift against the
+          # runs underneath it.
+          #
+          # The gap is deliberate and the two halves of this step do different
+          # jobs. The number printed on every run is what makes a small
+          # regression visible: seven becoming twenty is a change a reader can
+          # see and ask about. The budget is what refuses a gross one, and a
+          # budget set just above the observation would instead refuse an
+          # unrelated change on the day the runner is slow, which teaches people
+          # to re-run a check rather than read it.
+          SUITE_BUDGET_SECONDS: "60"
         run: |
           set -euo pipefail
           rc=0
