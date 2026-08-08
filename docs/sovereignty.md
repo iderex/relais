@@ -52,7 +52,9 @@ participant. Location: process memory for the session, and the admission audit
 trail. Lifetime: the session, and then the retention the operator sets on that
 trail. Claim, with one part of it recorded: the identifier is not resolved and not
 parsed here, which is in [the admission record](decisions/admission.md), and
-issue #124 is the mechanism that would refuse a credential carrying anything more.
+verification refuses a credential carrying any claim outside the set that record
+permits. That check reads the names of claims and not their contents, so it does
+not reach an account identifier placed in the participant field.
 
 Room identifiers, meaning the name this project issued when a room was opened.
 Location: process memory. Lifetime: the room. Claim.

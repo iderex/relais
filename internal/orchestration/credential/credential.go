@@ -25,6 +25,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -116,7 +117,40 @@ const (
 	ReasonWrongRoom Reason = "wrong-room"
 	// ReasonAlreadyUsed is a credential presented a second time.
 	ReasonAlreadyUsed Reason = "already-used"
+	// ReasonUnpermittedClaim is a credential carrying a claim outside the set
+	// [permittedClaims] declares, and the refusal names the claim.
+	//
+	// It is its own reason rather than a kind of malformed because the two say
+	// different things to whoever has to act. Malformed means the bytes were not a
+	// credential. This means the bytes were a genuine credential, signed by the
+	// service this host trusts, carrying something that service was not entitled
+	// to put in one, and the repair is at the issuer rather than in the request.
+	ReasonUnpermittedClaim Reason = "unpermitted-claim"
 )
+
+// permittedClaims is the closed set of claims a credential may carry. Everything
+// else is refused, including a claim this project has never heard of.
+//
+// A closed set rather than a list of forbidden fields, which is the shape
+// docs/decisions/admission.md asks for and the reason it gives: the prohibition is
+// about meaning and not about shape. An opaque participant identifier and an
+// account identifier are the same bytes, so no list of names to refuse could tell
+// them apart, and a list of names to refuse is also a list somebody has to extend
+// every time an issuer invents a field. A set of names to permit needs no such
+// upkeep: a field nobody declared here has never been agreed with anybody, and the
+// credential carrying it is refused before its contents reach anything that logs.
+//
+// What it costs is that adding a claim is a change to this set, to the payload
+// below, and to the record, in one commit that a reader can see. That is the cost
+// the record is asking for.
+var permittedClaims = map[string]struct{}{
+	"id":          {},
+	"room":        {},
+	"participant": {},
+	"powers":      {},
+	"notBefore":   {},
+	"expiresAt":   {},
+}
 
 // Refusal is the error every refusal below is reported as. It carries the reason
 // as a field rather than only in a sentence, so a caller routing on it never has
@@ -169,11 +203,10 @@ func decodeSegment(name, segment string) ([]byte, error) {
 
 // decodeJSON decodes one segment into v, refusing any field v does not define.
 //
-// Refusing an unknown field is what stops a credential carrying a display name
-// from parsing at all. It is not the closed set of permitted claims the admission
-// record owes and issue #124 holds: that one is a declared set with its own
-// refusal and its own evidence, and what happens here is only that a field nobody
-// defined does not decode.
+// The header is what this reads. The payload goes through [decodePayload] instead,
+// because the set of claims a credential may carry is declared rather than derived
+// from whatever fields a Go structure happens to have, and because the refusal has
+// to name the claim it refused.
 func decodeJSON(name, segment string, v any) error {
 	raw, err := decodeSegment(name, segment)
 	if err != nil {
@@ -185,6 +218,58 @@ func decodeJSON(name, segment string, v any) error {
 		return refuse(ReasonMalformed, "the %s segment is not a credential: %v", name, err)
 	}
 	return nil
+}
+
+// decodePayload decodes the payload segment, refusing a credential that carries any
+// claim outside [permittedClaims] and naming the claims it refused.
+//
+// The claim set is checked against the object as it arrived rather than against
+// what a Go structure absorbed, because those are different questions. A structure
+// silently drops what it has no field for, and a credential whose display name was
+// dropped is a credential that was accepted.
+//
+// Names are sorted so that a refusal on a credential carrying two unpermitted
+// claims reads the same way twice. Map iteration order is not, and a detail that
+// changes between runs is a detail nobody can assert against.
+func decodePayload(segment string) (payload, error) {
+	raw, err := decodeSegment("payload", segment)
+	if err != nil {
+		return payload{}, err
+	}
+
+	var claims map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &claims); err != nil {
+		return payload{}, refuse(ReasonMalformed, "the payload segment is not a credential: %v", err)
+	}
+
+	var unpermitted []string
+	for name := range claims {
+		if _, ok := permittedClaims[name]; !ok {
+			unpermitted = append(unpermitted, name)
+		}
+	}
+	if len(unpermitted) > 0 {
+		sort.Strings(unpermitted)
+		return payload{}, refuse(ReasonUnpermittedClaim,
+			"the credential carries %s, which this project does not permit a credential to carry",
+			strings.Join(quoted(unpermitted), ", "))
+	}
+
+	var p payload
+	if err := json.Unmarshal(raw, &p); err != nil {
+		return payload{}, refuse(ReasonMalformed, "the payload segment is not a credential: %v", err)
+	}
+	return p, nil
+}
+
+// quoted puts each name in quotation marks so a refusal naming an empty claim name
+// still shows that there was one.
+func quoted(names []string) []string {
+	out := make([]string, len(names))
+	for i, name := range names {
+		out[i] = fmt.Sprintf("%q", name)
+	}
+	return out
 }
 
 // signingInput is the bytes a signature covers: the two encoded segments and the

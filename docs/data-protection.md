@@ -57,10 +57,13 @@ lifetime of the room.
 Credentials, meaning the token the service above hands over for a join. Processed
 by verifying its signature and its validity window. Held for the moment of the
 join and not afterwards. What it is permitted to carry is a closed question: the
-admission record forbids anything about a human being, and a mechanism that
-refuses a credential carrying such a field is issue #124, which is open. Until
-that lands, the prohibition is a rule a person enforces by reading a change, and
-an operator should read this paragraph as weaker than the sentence above sounds.
+admission record forbids anything about a human being, and verification refuses a
+credential carrying any claim outside the set that record permits, naming the claim
+it refused. What that check cannot do is judge a permitted claim's contents. An
+account identifier placed in the participant field is the same bytes as an opaque
+label, so for that case the prohibition is still a rule a person enforces by
+reading a change, and an operator should read this paragraph as weaker than the
+sentence above sounds.
 
 Admission decisions, meaning a record that a join was accepted or refused, with
 the reason. Processed so that an operator can answer what happened. Held for a
