@@ -60,7 +60,7 @@ func NewVerifier(key ed25519.PublicKey, now Clock, skew time.Duration) (*Verifie
 // been repaired.
 func (v *Verifier) Verify(token string, room mediaplane.RoomID) (Grant, error) {
 	if len(token) > maxTokenBytes {
-		return Grant{}, refuse(ReasonMalformed, "the token is %d bytes, over the %d this project reads", len(token), maxTokenBytes)
+		return Grant{}, refuse(ReasonTooLarge, "the token is %d bytes, over the %d this project reads", len(token), maxTokenBytes)
 	}
 
 	headerSegment, payloadSegment, signatureSegment, err := split(token)

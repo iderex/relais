@@ -91,9 +91,18 @@ type Reason string
 
 // The reasons. Each one is produced in exactly one place below.
 const (
-	// ReasonMalformed is a token that is not a credential: wrong shape, too
-	// long, not decodable, or carrying a field this package does not define.
+	// ReasonMalformed is a token that is not a credential: wrong shape, not
+	// decodable, or carrying a field this package does not define.
 	ReasonMalformed Reason = "malformed"
+	// ReasonTooLarge is a token past the length this project reads, refused
+	// before anything decodes it.
+	//
+	// It is its own reason rather than a kind of malformed, and the reason it
+	// is separate is that nothing else can tell the two apart: an oversized
+	// token fails every later check as well, so a suite could not show that the
+	// length was what refused it, and a bound nothing can show refusing is a
+	// bound that can be deleted without anything going red.
+	ReasonTooLarge Reason = "too-large"
 	// ReasonAlgorithm is a token naming an algorithm other than [Algorithm].
 	ReasonAlgorithm Reason = "algorithm"
 	// ReasonSignature is a token whose signature does not hold under the public

@@ -339,18 +339,29 @@ func TestBytesThatAreNotACredentialAreRefused(t *testing.T) {
 	valid := mint(t, aJoin())
 
 	cases := map[string]string{
-		"nothing at all":                           "",
-		"two segments":                             strings.Join(strings.Split(valid, ".")[:2], "."),
-		"four segments":                            valid + ".extra",
-		"a header that is not base64url":           "not!base64." + strings.Join(strings.Split(valid, ".")[1:], "."),
-		"a header that is not JSON":                forge(`{`, `{"id":"x","room":"room-1","participant":"p","powers":[],"notBefore":0,"expiresAt":4102444800}`, ed25519.NewKeyFromSeed(issuerSeed)),
-		"a token past the size this project reads": strings.Repeat("a", maxTokenBytes+1),
+		"nothing at all":                 "",
+		"two segments":                   strings.Join(strings.Split(valid, ".")[:2], "."),
+		"four segments":                  valid + ".extra",
+		"a header that is not base64url": "not!base64." + strings.Join(strings.Split(valid, ".")[1:], "."),
+		"a header that is not JSON":      forge(`{`, `{"id":"x","room":"room-1","participant":"p","powers":[],"notBefore":0,"expiresAt":4102444800}`, ed25519.NewKeyFromSeed(issuerSeed)),
 	}
 
 	for what, token := range cases {
 		if got := refusalFor(t, verifierAt(t, theMoment), token, "room-1"); got != ReasonMalformed {
 			t.Errorf("%s was refused as %q, want %q", what, got, ReasonMalformed)
 		}
+	}
+}
+
+// TestATokenPastTheSizeThisProjectReadsIsRefusedOnItsLength covers the bound in
+// front of every decode. Deleting the bound leaves the token refused anyway, by
+// whichever check it fails next, so what this asserts is the reason: a guard whose
+// removal changes nothing a test can see is a guard that can be removed.
+func TestATokenPastTheSizeThisProjectReadsIsRefusedOnItsLength(t *testing.T) {
+	token := strings.Repeat("a", maxTokenBytes+1)
+
+	if got := refusalFor(t, verifierAt(t, theMoment), token, "room-1"); got != ReasonTooLarge {
+		t.Errorf("a token of %d bytes was refused as %q, want %q", len(token), got, ReasonTooLarge)
 	}
 }
 
