@@ -424,9 +424,34 @@ issue #36.
 
 ## What has confirmed any of this
 
-Nothing. There is no implementation and no consumer:
+Nothing. No implementation of this contract exists, and no consumer of it exists.
 
-    git ls-files internal/ | grep -v README
+The command that used to stand under that sentence listed everything under
+`internal/`, and it stopped agreeing with the sentence the moment a package landed
+that this document does not describe. Two have. One names the identifiers these
+operations carry; the other decides whether a join credential is genuine, current
+and applicable. Neither is a room, a track, a negotiation or an operation on this
+contract, so both are real code and neither is evidence for or against anything
+written above. A reader who ran that command saw output where the sentence told
+them to expect none, and the honest reading of that is that the evidence had
+stopped supporting the claim.
+
+What an implementation of this contract needs first is code in the package that
+carries it to the wire, and that package holds nothing but the note saying what
+belongs in it:
+
+    git ls-files internal/api
+    internal/api/README.md
+
+The bound on that command is that it is a necessary condition rather than the whole
+of one. `internal/api` holding code would not by itself mean this contract was
+implemented. This contract being implemented would mean `internal/api` holds code,
+and it does not. The output moves when that changes and at no other time, which is
+the property the previous command did not have.
+
+The consumer half is a claim rather than a result, and it is written as one. A
+consumer of this contract is a service built on top of this project, which lives
+outside this repository, so no command run here could show its absence.
 
 This document is a specification, and issue #51 is the conformance suite that
 turns it into something a second implementation can be judged against. Until that
