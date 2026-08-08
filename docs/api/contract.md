@@ -169,10 +169,11 @@ admits nothing further. A repeat under a different credential fails with
 caller that wants different powers is describing a different admission and should
 say so by revoking first.
 
-A retry is safe. A retry after `credential-invalid` is not useful, because the
-credential does not become valid by being sent twice, and the short validity
-window in the admission record means a retry after a long pause fails for a
-different reason than the first attempt did.
+A retry is safe. A retry after `credential-invalid` is not useful, because a
+signature does not start holding by being sent twice. A retry after a long pause
+fails with `clock-skew` rather than with the reason the first attempt gave,
+because the short validity window in the admission record has closed by then, and
+what that reason asks of a caller is set out with the error set below.
 
 ### Revoke a participant
 
@@ -341,7 +342,7 @@ one to this document first.
 | `malformed` | `caller` | the request could not be understood |
 | `unknown` | `caller` | the room, participant, track or subscription named does not exist here |
 | `already-exists` | `caller` | the identifier is in use and the request is not the idempotent repeat described above |
-| `credential-invalid` | `caller` | the credential's signature or validity window did not hold |
+| `credential-invalid` | `caller` | the credential's signature did not hold |
 | `unauthorised` | `caller` | the credential is good and does not carry the power this operation needs |
 | `too-large` | `caller` | the request exceeded a size limit |
 | `at-capacity` | `transient` | well formed, and this host cannot carry it |
@@ -351,7 +352,7 @@ one to this document first.
 | `format-unsupported` | `caller` | a format named in the room's set is not one this project carries |
 | `refused-by-media` | `refused` | the request contradicts what the media side observes, a named layer the track does not report being the ordinary instance |
 | `format-refused` | `refused` | the offer at negotiation is outside the room's format set, which the refusal names |
-| `clock-skew` | `refused` | the credential's times and this host's clock did not line up |
+| `clock-skew` | `refused` | the credential's validity window did not hold against this host's clock, in either direction |
 | `unsupported-version` | `refused` | the caller asked for a version this project does not serve |
 
 Five notes on the set, each of which is a decision rather than a detail.
@@ -378,13 +379,32 @@ refusal names the accepted set so the caller can pass that on. A caller that rea
 the class and stops is doing the right thing; a caller that reads `caller` and
 retries would be sending the same offer forever.
 
-`clock-skew` is separate from `credential-invalid` and is class `refused` rather
-than `caller`, which looks wrong until the repair is considered. The caller's
-request is fine and its credential may be fine; what is out of step is a clock, on
-one host or the other. A caller that retried or re-minted would be working on the
-wrong thing. The admission record requires the refusal to say the times did not
-line up rather than reporting a bad credential, and the class is how that survives
-a caller that reads no prose.
+`clock-skew` is the reason for every validity window failure, in both directions,
+and `credential-invalid` covers a signature that did not hold and nothing about
+time. The two rows described one condition between them before this was settled,
+and a class is a field a caller routes on, so two reasons answering to one
+condition made the routing a coin toss.
+
+What a verifier holds when a window fails is the credential's two times, its own
+clock, and the tolerance the admission record makes part of the join contract. It
+does not hold the issuing service's clock. So it can decide that the window did
+not hold once the tolerance is applied, and it cannot decide which of the two
+sides moved. A credential that sat too long and a host whose clock runs fast
+produce the same observation; a credential presented before its window opens and
+a host whose clock runs slow produce the other same observation. Nothing in a
+credential separates them, which is why one reason covers both directions and why
+that reason names what was checked rather than what is suspected.
+
+The class follows from that. `refused` tells a caller to stop rather than to
+re-mint, and re-minting is what a service must not do against a host whose clock
+has drifted, because every credential it issues will fail the same way and the
+loop hides the one fact the operator needs. The cost is real and is paid rather
+than hidden: a service whose credential simply aged out is told to stop, when
+minting a fresh one for the next attempt would have worked, and it has to reach
+that conclusion itself instead of reading it off the class. It is paid because the
+other mistake is the one nobody can see from outside the host, and because a
+host's own skew is meant to be caught at startup by issue #81 rather than by a
+caller inspecting error classes.
 
 `unknown` is class `caller` rather than `refused` because the repair is in the
 request: the caller named something that is not here. It is separate from
