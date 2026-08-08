@@ -1,3 +1,9 @@
+// relais, a realtime SFU backend for community self-hosters.
+// Copyright (C) 2026 Nils Lehnen
+//
+// Licensed under the GNU Affero General Public License, version 3. See LICENSE
+// for the full terms, including the warranty and liability disclaimer.
+
 // Package architecture holds the dependency directions from
 // docs/architecture.md in the form a machine can refuse a violation of.
 //
