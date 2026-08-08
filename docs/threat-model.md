@@ -88,7 +88,8 @@ That is stated rather than mitigated.
 A forged or replayed credential. Against it: signatures verified against a public
 key this deployment holds, with the minting key elsewhere, and a validity window
 short enough that a leaked credential expires rather than being revoked. Both are
-in the admission record and are built by #45. A credential is a key to a door
+in the admission record, and the verifier that holds them is
+`internal/orchestration/credential`, landed by #45. A credential is a key to a door
 rather than a session, so a forged one that arrives after the window has passed
 opens nothing.
 
@@ -192,8 +193,12 @@ honest state of the tree at this commit rather than a plan.
 
 ## What this document is for
 
-Issue #105 writes the security policy and the disclosure process. That document is
-where a reporter is told what is in scope for a report, and this is the document
-it points at for the answer. Until it exists, there is no published disclosure
-process, and that absence is a fact about this repository rather than something
-this document can fix.
+[SECURITY.md](../SECURITY.md) is the security policy and the disclosure process.
+It is where a reporter is told what is in scope for a report, and it sends them
+here for the answer rather than quoting one, so the two cannot drift apart. Issue
+#105 is where that document is argued, and what is still open about it is
+recorded there rather than restated here.
+
+The line this document draws is between what is claimed and what is built. Almost
+every mitigation above is an open issue, and reading this document as a
+description of what runs today would be reading it backwards.
