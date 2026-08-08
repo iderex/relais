@@ -127,6 +127,19 @@ not require them:
     gh api repos/iderex/jellyfin-plugin-sso/rulesets/18802863 --jq '[.rules[].type]'
     ["deletion","non_fast_forward","required_status_checks","pull_request"]
 
+The cost falls on somebody sending a first change, and it is taken knowingly
+rather than absorbed. A signature is a key generated, named in git, and registered
+on the account that pushes, which is three steps standing between a one-line fix
+and the branch it is on, none of them about the fix. The failure then arrives late
+and reads as arbitrary: every check green, and the merge refusing on a commit made
+days earlier. The repair is a rewrite of the branch rather than an addition to it,
+which is the operation somebody new to git is least willing to run, and the reason
+[the contribution guide](../CONTRIBUTING.md) carries the command that performs it
+beside the two spellings of the bypass that is not the repair. What is bought for
+that is the reason it is paid: an operator deciding to run a release built from
+this history is trusting the history, and without the requirement a commit's
+stated author is a field anybody can write.
+
 A reproducible release from a tag, issue #112. An operator who cannot rebuild the
 artefact they are running cannot check that it is the artefact they were given.
 

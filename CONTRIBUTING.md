@@ -63,6 +63,75 @@ git rebase --signoff origin/main
 This one is refused by a machine. A commit without a matching trailer reds the
 sign-off gate and the change does not merge.
 
+## Sign your commits
+
+The trailer above is a sentence you wrote into the commit. A signature is a
+cryptographic claim about who produced it, checkable by anybody holding the public
+half of the key. Two mechanisms, two failure modes, and they sit next to each
+other here because the names are close enough to be read as one thing. Adding the
+trailer does nothing about the signature and signing does nothing about the
+trailer.
+
+Configure it once per clone. An SSH key needs its format named as well as the key
+itself:
+
+```
+git config commit.gpgsign true
+git config gpg.format ssh
+git config user.signingkey ~/.ssh/id_ed25519_signing.pub
+```
+
+Read what you produced rather than the setting you asked for:
+
+```
+git log --format='%h %G? %s' -1
+```
+
+`G` is a good signature and `N` is none at all. `E` means the signature could not
+be checked in your clone because the key is not there, which is what a merge made
+on the server looks like from here. The server keeps its own answer, and it is the
+one a requirement would read:
+
+```
+gh api repos/iderex/relais/commits/9ff2f29 --jq '.commit.verification | {verified, reason}'
+{"reason":"valid","verified":true}
+```
+
+That answer is `verified: false` until the signing key is registered on the account
+that pushes, so the local `G` above is necessary and not sufficient.
+
+Where the requirement is in force, one unsigned commit anywhere in a branch's
+history refuses the merge, not only the last one. So the repair is to sign the
+history again, and signing a commit changes it, which means the branch is rewritten:
+
+```
+git rebase --exec 'git commit --amend --no-edit -S' origin/main
+```
+
+The repair is never to turn signing off for the commit that failed. Both spellings
+of that are written here so that neither is mistaken for a fix:
+
+```
+git commit --no-gpg-sign
+git -c commit.gpgsign=false commit
+```
+
+A commit made either way compiles, tests and reads exactly like a signed one, and
+nothing between here and the merge says otherwise. The refusal arrives at the end,
+on a commit made days earlier, and it costs the whole branch.
+
+Nothing refuses an unsigned commit here today. The ruleset carries no signature
+requirement, read at this commit rather than assumed:
+
+```
+gh api repos/iderex/relais/rulesets/20487474 --jq '{enforcement, bypass: .bypass_actors, types: [.rules[].type]}'
+{"bypass":[],"enforcement":"active","types":["deletion","non_fast_forward","pull_request"]}
+```
+
+Issue #98 is the request for it and it has not been granted. Until it is, this
+section describes a requirement that is asked for and not in force, and signing is
+a courtesy to whoever grants it rather than something the tree makes you do.
+
 ## Line endings
 
 The tree is LF everywhere, in the repository and in your working copy, and
