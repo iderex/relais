@@ -84,6 +84,58 @@ project chose, in issue #22. Two check names there are one analyser configured f
 one language; here the second lens is a different tool entirely and is issue #88,
 which does not pretend to be the same element.
 
+What that analysis is pointed at, and how, is in the workflow rather than
+described here:
+
+    git grep -n 'languages:\|build-mode:\|queries:' -- .github/workflows/codeql.yml
+    .github/workflows/codeql.yml:77:          languages: go
+    .github/workflows/codeql.yml:81:          build-mode: autobuild
+    .github/workflows/codeql.yml:87:          queries: security-extended
+
+What it does not cover is recorded for issue #87, so a green result is not read
+as coverage it does not provide. None of the following is a measurement. Each is
+a claim about the kind of question this analyser answers, and the reason it is
+worth writing down is that every one of them is a class this particular service
+is exposed to.
+
+Concurrency. A race between a publisher's write and a subscriber's read, or a
+lock held across a network wait, is not the shape a taint analysis is looking
+for. The race detector in the test suite is the tool for that class, and it sees
+only what a test actually executes.
+
+Resource cost. An allocation per packet, a buffer that grows with a stranger's
+input, or a loop whose cost is quadratic in the number of participants are
+correctness-neutral to the analyser and are most of what the resource budget in
+this project rests on.
+
+Whether a decision is the right decision. A path from a credential to an
+authorisation check is visible; whether the powers that credential carries are
+the powers actually enforced is a question about meaning, and no analyser reads
+`docs/decisions/admission.md`.
+
+Key handling away from the call site. A signature verified correctly in the code
+and a key distributed to the wrong place read identically from the source.
+
+Code the build does not compile. The mode is autobuild, so what is analysed is
+what the ordinary build produces on the runner. Anything behind a build
+constraint that the runner does not select is not read at all.
+
+There is also no severity threshold set here, which is the second thing issue
+#87 asks for and does not yet have. Two of the neighbouring gates set one and
+this workflow sets none:
+
+    git grep -rniE 'severity' -- .github/
+    .github/workflows/dependency-review.yml:33:          fail-on-severity: low
+    .github/workflows/zizmor.yml:6:# The gate runs zizmor's regular persona at --min-severity=low: it fails the
+    .github/workflows/zizmor.yml:12:# low-severity hygiene findings (undocumented permissions, missing concurrency,
+    .github/workflows/zizmor.yml:65:        run: uvx --no-build "zizmor@${ZIZMOR_VERSION}" --strict-collection --min-severity=low --format=sarif . > results.sarif
+    .github/workflows/zizmor.yml:84:        run: uvx --no-build "zizmor@${ZIZMOR_VERSION}" --strict-collection --min-severity=low --format=plain .
+
+Whether the analysis job's own conclusion turns on a finding at all was not
+measured. What is established is that nothing in this tree sets the threshold, so
+if one is in force it is a repository setting rather than something a reader of
+this repository can see.
+
 `DCO sign-off`. Adopted unchanged, and already running. The certificate is the
 same certificate whatever the artefact is.
 
