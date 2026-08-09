@@ -21,17 +21,50 @@ and each owes a reason.
 ## What this repository requires, at the same commit
 
     gh api repos/iderex/relais/rulesets/20487474 --jq '{enforcement, bypass: .bypass_actors, types: [.rules[].type]}'
-    {"bypass":[],"enforcement":"active","types":["deletion","non_fast_forward","pull_request"]}
+    {"bypass":[],"enforcement":"active","types":["deletion","non_fast_forward","pull_request","required_status_checks"]}
 
-No required status check exists here at all, so the distance is the whole list.
-Several of the checks below already run on every pull request; none of them is
-required to be green before a merge, which is a different statement and is what
-issue #29 changes.
+    gh api repos/iderex/relais/rulesets/20487474 --jq '[.rules[] | select(.type=="required_status_checks") | .parameters.required_status_checks[].context]'
+    ["Audit workflows (zizmor)","Build","DCO sign-off","Lint","Reject Trojan Source Unicode","Test","dependency-review"]
+
+Seven contexts have to be green before a merge. This section said none did, which
+was true when it was written and stopped being true without anything here
+noticing, and correcting it is issue #162.
+
+That is seven of the eight issue #29 asked for. The eighth is `CodeQL`, which
+runs on every pull request and is not required, and no reason for leaving it out
+is recorded where this document can read one.
+
+Three of the checks that run here are outside the requirement. Read off the head
+of a pull request rather than from the workflow files, and restricted to the app
+that runs the jobs in this tree:
+
+    gh api repos/iderex/relais/commits/54a4a73dfa53f1af7812f5f422575bf4df1b4a91/check-runs --jq '[.check_runs[] | select(.app.slug=="github-actions") | .name] | unique | .[]'
+    Audit workflows (zizmor)
+    Build
+    CodeQL
+    DCO sign-off
+    Dependencies
+    Documentation
+    Lint
+    Reject Trojan Source Unicode
+    Test
+    dependency-review
+
+`CodeQL`, `Dependencies` and `Documentation` are the three in that output and not
+in the requirement. The distance from the reference is therefore one granted
+requirement short of what was asked for, plus the elements below that are not
+built yet, rather than the whole list.
+
+The strict policy is off, so a branch does not have to be up to date with the
+default branch before it merges:
+
+    gh api repos/iderex/relais/rulesets/20487474 --jq '[.rules[] | select(.type=="required_status_checks") | .parameters.strict_required_status_checks_policy]'
+    [false]
 
 ## Per element of the reference gate
 
 `build`. Adopted. A tree that does not compile makes every other result
-meaningless. It runs here already and #29 makes it required.
+meaningless. It runs here and is required, as `Build`.
 
 `ABI floor build`. Dropped. It exists because a plugin is loaded into a host
 process whose interface version it must not exceed. Nothing loads this service
@@ -168,8 +201,9 @@ artefact they are running cannot check that it is the artefact they were given.
 
 ## What this document is not
 
-It is not a claim that any of the adopted elements is required here today. The
-second command above is the authority for that, and it says none of them is.
+It is not a claim that an adopted element is required here merely because it runs.
+The two commands under what this repository requires are the authority for that,
+and they name seven contexts and no others.
 
 It is not a schedule, and it names no order. Which of these lands first is decided
 by the milestones, not here.
