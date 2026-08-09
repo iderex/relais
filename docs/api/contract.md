@@ -43,11 +43,19 @@ of them is a record of anything that happened.
 A room. The container everything else hangs on. Its identifier is minted by the
 caller when the room is opened, so the caller can address the room before this
 project has answered. It exists from the moment it is opened until it is closed,
-and closing it is the only way it disappears. It holds no memory of who was in it,
-and a second room opened under the same identifier after the first was closed is a
-different room that happens to share a name. It carries a format set, described
-below, which is part of its description from the moment it is opened and is
-readable before anybody has joined.
+and closing it is the only operation here that ends it. It holds no memory of who
+was in it, and a second room opened under the same identifier after the first was
+closed is a different room that happens to share a name. It carries a format set,
+described below, which is part of its description from the moment it is opened and
+is readable before anybody has joined.
+
+A room does not survive a restart of this project, and that is the one way it ends
+without any operation here being called. Rooms are not durable, which
+[the deployment design](../decisions/deployment-design.md) fixes and this document
+does not restate. A caller learns it the way it learns anything else after losing
+its stream, by reading: the reads are the authority and a room that is gone answers
+`unknown`. A caller that treats a room as durable state has assumed something no
+operation above promises.
 
 A participant. One connected session. Its identifier is minted by the caller and
 is opaque here, which [the admission record](../decisions/admission.md) fixes and
