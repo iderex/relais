@@ -116,10 +116,33 @@ Entry 8 of issue #1, and nothing else on this board.
 
 Every participant can be asked to send something the room can use, except a caller
 on a telephone line, who cannot. That is the one request this position cannot answer
-on its own, and it belongs to the maintainer. This record neither answers it nor
-assumes an answer. If it is answered in a way that puts such a caller in scope
-inside this service, the first paragraph of this record stops being true and the
-resource budget is re-measured against whatever replaced it.
+on its own, and it belongs to the maintainer. This record answers none of it.
+
+The entry has since been answered. The answer is the last comment on issue #1:
+
+    gh issue view 1 --repo iderex/relais --json comments --jq '.comments[-1].createdAt'
+    2026-08-09T03:48:52Z
+
+Such a caller is in scope as a separate artefact beside this service, carrying its
+own budget, its own release and its own attack surface, and the work gets an issue
+of its own. The answer is the maintainer's and is recorded here rather than made
+here, and it is left where it was given rather than restated in this record's own
+words, so there is one place for it to be read.
+
+That is the branch this position survives. What this section wrote down as the
+trigger was an answer putting such a caller in scope inside this service, and the
+answer given puts the conversion beside it. So the first paragraph of this record
+still holds, the format list is unchanged, and the resource budget is not
+re-measured against anything. The property this record fixes is what makes the
+separate artefact possible: the conversion cost lands somewhere with a budget of
+its own, and what an operator runs here is still the thing the published figures
+will describe.
+
+What would reopen this is now narrower than the entry was. An answer moving that
+conversion inside this service ends the first paragraph and sends the budget back
+to be measured against whatever replaced it. So does a component beside this
+service that this service has to decode for, which is the same thing arriving by
+a different route. Nothing on this board asks for either today.
 
 ## The patent position, in operator terms
 
