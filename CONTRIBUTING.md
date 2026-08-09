@@ -42,6 +42,10 @@ admits something was not done, that admission survives every later edit.
 
 Nothing here refuses a change for skipping any of this. It is what a reader checks.
 
+Who decides what merges, how a decision is recorded, what you can expect back
+when you propose something, and what happens to this project if the maintainer
+stops is in [GOVERNANCE.md](GOVERNANCE.md).
+
 ## Sign your work
 
 Every commit carries a `Signed-off-by` trailer matching its author, which is how
