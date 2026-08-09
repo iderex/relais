@@ -134,7 +134,12 @@ jobs:
             exit 1
           fi
 
-          RELAIS_ANALYSIS_SARIF="$found"
+          # Absolute, because the suite that reads it runs with its own package
+          # directory as the working directory rather than this one. A relative
+          # path resolves under test/scanseverity there, which is a file that
+          # does not exist, and the first run of this step failed exactly that
+          # way.
+          RELAIS_ANALYSIS_SARIF="$PWD/$found"
           export RELAIS_ANALYSIS_SARIF
           echo "judging $RELAIS_ANALYSIS_SARIF against the threshold in test/scanseverity"
 

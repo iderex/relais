@@ -32,7 +32,14 @@ func TestTheAnalysisCarriesNothingAtOrAboveTheThreshold(t *testing.T) {
 
 	sarif, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("reading the analysis output at %s: %v", path, err)
+		// The working directory is in the message because a test binary
+		// runs in its own package directory rather than where the job
+		// that set the variable stood, so a path that was right on the
+		// command line resolves somewhere else here. That is how the
+		// first run of this gate failed, and the message is what turns
+		// it from a puzzle into one line.
+		where, _ := os.Getwd()
+		t.Fatalf("reading the analysis output at %s from %s: %v", path, where, err)
 	}
 
 	judged, err := scanseverity.Judge(sarif, scanseverity.Threshold)
