@@ -90,3 +90,57 @@ jobs:
         uses: github/codeql-action/analyze@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4.37.3
         with:
           category: codeql-go
+          # Keep the analyser's own output on the runner as well as uploading
+          # it. The upload is what gives a finding a home; this copy is what the
+          # step below judges, and judging the file rather than asking the code
+          # scanning surface afterwards keeps the verdict offline, identical on
+          # a pull request from a fork where that surface is not readable, and
+          # reproducible by anybody holding the same file.
+          output: sarif-results
+
+      # The threshold that reds this check, which is what issue #87 asks for.
+      # The number and the argument for it are in test/scanseverity, beside the
+      # reading of the analysis that applies them, rather than restated here
+      # where a second copy would drift against the one that decides.
+      #
+      # It runs after the upload rather than instead of it, so a finding below
+      # the threshold is still raised, still visible on the code scanning
+      # surface and still somebody's. The threshold decides what stops a merge
+      # and nothing else.
+      #
+      # This step is inside the analysis job on purpose. The check-run name is
+      # what a branch protection rule names, and a separate job would produce a
+      # second name for the same question.
+      - name: Refuse a finding at or above the threshold
+        env:
+          RESULTS: sarif-results
+        run: |
+          set -euo pipefail
+
+          # A run that judged nothing exits like a run that judged everything
+          # and was happy. This is the half of that which can be decided before
+          # the file is opened: the analyser writes one output per language and
+          # this job analyses one.
+          if [ ! -d "$RESULTS" ]; then
+            echo "::error::The analyser left no $RESULTS directory, so there is no output to judge. That is a broken step rather than a clean tree, and it is refused."
+            exit 1
+          fi
+
+          found=$(find "$RESULTS" -type f -name '*.sarif' | sort)
+          count=$(printf '%s' "$found" | grep -c '^' || true)
+          if [ "$count" != "1" ]; then
+            echo "::error::The analyser left $count SARIF file(s) under $RESULTS and this step judges one. Neither none nor several is a verdict, so it is refused rather than passed."
+            ls -la "$RESULTS"
+            exit 1
+          fi
+
+          RELAIS_ANALYSIS_SARIF="$found"
+          export RELAIS_ANALYSIS_SARIF
+          echo "judging $RELAIS_ANALYSIS_SARIF against the threshold in test/scanseverity"
+
+          # Verbose, because the suite prints how many rules it read, how many
+          # of them carry a severity, and how many findings it judged. Those
+          # counts are what tell a clean analysis from one this step failed to
+          # read, and the reading fails closed on the shapes where it could not
+          # have decided anything.
+          go test ./test/scanseverity/ -count=1 -v
