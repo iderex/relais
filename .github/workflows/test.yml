@@ -62,7 +62,7 @@ jobs:
           go-version-file: go.mod
           check-latest: false
           # No third-party dependency yet, so no go.sum for a cache key to hash.
-          # Comes back with the lock file in #20.
+          # It comes back with the first dependency rather than with an issue.
           cache: false
 
       - name: Assert the runner has no display, no audio device and no elevation

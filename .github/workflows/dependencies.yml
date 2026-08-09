@@ -1,0 +1,162 @@
+# The dependency gate: the manifest, the lock file, and the network the build is
+# allowed to reach.
+#
+# A dependency graph that resolves differently on two days is a supply chain with
+# no memory. This project intends to publish a bill of materials and to sign
+# releases, and neither means anything if the inputs move underneath them, so the
+# pinning is made checkable here rather than described somewhere.
+#
+# Three separate properties, three steps, because they fail for different reasons
+# and a reader of a red run should not have to work out which one broke.
+#
+# The manifest and the lock file agree. `go mod tidy -diff` prints what a tidy run
+# would change and exits non-zero rather than changing it, which is the whole
+# point: a gate that repaired the file would turn a dependency added by accident
+# into a dependency added silently.
+#
+# What was restored is what the lock file names. The download is what enforces
+# that, on a runner whose module cache starts empty: a module whose bytes do not
+# hash to the line in go.sum is refused with a security error rather than
+# compiled in. `go mod verify` is a second and narrower question and the step
+# below says which is which, because the two are easy to read as one.
+#
+# The build reaches no network of its own. The last step compiles with the proxy
+# switched off and the toolchain fixed to the one already installed, so anything
+# the lock file does not cover is a failure rather than a download.
+#
+# WHAT THIS GATE DOES NOT PROVE TODAY, and the sentence is here because a green
+# run is otherwise unreadable. This module requires nothing:
+#
+#     go list -m all
+#     github.com/iderex/relais
+#
+# so there is no go.sum in the tree and the restore step examines nothing. It
+# passes for want of a subject rather than on evidence, which is why it prints
+# the size of the graph it looked at.
+#
+# The other two steps do bite on this tree. An import of a module the manifest
+# does not carry reds the first, and the compile refuses the same import again
+# with the proxy off instead of resolving it. Both are demonstrated in the pull
+# request that landed this file. The lock file itself arrives with the first
+# dependency, and issue #20 is where that is written down.
+#
+# Hardened the same way as the other workflows here: actions SHA-pinned with a
+# version comment, checkout with persist-credentials false, permissions denied at
+# the top level and granted only on the job.
+name: Dependencies
+
+on:
+  pull_request:
+    branches: ["**"]
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The check-run name this produces is quoted literally by the branch protection
+  # request in #29, the same as the build, style and test gates, so it changes
+  # only together with that issue.
+  dependencies:
+    name: Dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up the toolchain
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # Read from go.mod, the same single place every other gate reads it
+          # from.
+          go-version-file: go.mod
+          check-latest: false
+          # The cache key is a hash of go.sum, and this module requires nothing,
+          # so there is no such file to hash. The cache comes back with the first
+          # dependency rather than with any issue, and until then turning it on
+          # would fail the step looking for a file that is absent by design.
+          cache: false
+
+      - name: Report the toolchain and the module graph
+        # Printed rather than asserted. A run that resolved a different graph than
+        # the reader expects says so in its own log, and the claim in the header
+        # of this file about there being no dependencies is checkable against this
+        # step on every run rather than against the day it was written.
+        run: |
+          set -euo pipefail
+          go version
+          echo "module graph:"
+          go list -m all
+
+      - name: Refuse a manifest and a lock file that disagree
+        # `-diff` is what makes this a gate rather than a repair. Without it the
+        # command rewrites go.mod and go.sum in place and exits zero, so a
+        # dependency nobody reviewed becomes a tree that builds.
+        #
+        # This is the step that bites today. A file importing a module the
+        # manifest does not carry produces a non-zero exit and the diff that would
+        # have been written, which names the module and the version a tidy run
+        # would have chosen.
+        run: |
+          set -euo pipefail
+          go mod tidy -diff
+          echo "The manifest and the lock file agree."
+
+      - name: Restore against the lock file, and check the cache after it
+        # The restore is the check, and it is the download that makes it one. On a
+        # cold cache `go mod download` hashes every module it fetches and compares
+        # that against go.sum, refusing a mismatch with a security error. The
+        # cache on this runner is cold on every run, which is what the disabled
+        # setup-go cache above leaves true.
+        #
+        # `go mod verify` is not that check and this step keeps the two apart
+        # because their names invite reading them as one. It compares the module
+        # cache against the hash recorded when the cache was filled, so it catches
+        # a directory edited after the download and says nothing about go.sum: a
+        # tree whose lock file was altered while the cache still holds the
+        # original module passes it. Measured rather than supposed, on a module
+        # with a dependency and one h1 line replaced by hand, and both readings
+        # are in the pull request that landed this file.
+        #
+        # Both are vacuous while the module requires nothing, so the step prints
+        # how many modules were in the graph. A run that verified nothing and a
+        # run that verified something are otherwise the same green tick.
+        run: |
+          set -euo pipefail
+          go mod download -x
+          go mod verify
+          echo "modules in the graph, this one included: $(go list -m all | wc -l)"
+
+      - name: Compile with the network switched off
+        # The property the two steps above cannot reach: that nothing outside the
+        # lock file is fetched while the tree is being built.
+        #
+        # GOPROXY=off refuses any module download. GOFLAGS=-mod=readonly refuses
+        # an edit to go.mod, so a missing requirement is reported rather than
+        # added. GOTOOLCHAIN=local pins the compiler to the one the step above
+        # installed: with the default setting a go.mod asking for a newer release
+        # makes the toolchain itself an unpinned input the lock file says nothing
+        # about, downloaded mid-build.
+        #
+        # The output goes outside the checkout for the reason the build gate
+        # states: `go build ./...` writes its executable into the working
+        # directory, git then reports the tree as modified, and the version stamp
+        # of everything built afterwards carries that state.
+        env:
+          GOPROXY: "off"
+          GOFLAGS: "-mod=readonly"
+          GOTOOLCHAIN: local
+        run: |
+          set -euo pipefail
+          go build -o "$RUNNER_TEMP/build/" ./...
+          echo "The tree compiles with no proxy, no manifest edit and no toolchain download."

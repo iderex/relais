@@ -63,8 +63,9 @@ jobs:
           check-latest: false
           # The tree has no third-party dependency and therefore no go.sum for a
           # cache key to hash. Turn the cache off explicitly rather than let the
-          # step fail looking for a file that is absent by design. This comes back
-          # with the lock file in #20.
+          # step fail looking for a file that is absent by design. It comes back
+          # with the first dependency, which is the moment there is a lock file to
+          # hash; the dependency gate is what refuses one that arrives without.
           cache: false
 
       - name: Report the toolchain actually used
