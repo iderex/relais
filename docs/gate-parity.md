@@ -120,21 +120,36 @@ Code the build does not compile. The mode is autobuild, so what is analysed is
 what the ordinary build produces on the runner. Anything behind a build
 constraint that the runner does not select is not read at all.
 
-There is also no severity threshold set here, which is the second thing issue
-#87 asks for and does not yet have. Two of the neighbouring gates set one and
-this workflow sets none:
+The severity at which a finding here stops a merge is in the tree, which is the
+second thing issue #87 asks for. This section said there was none, and that was
+true until the number below landed:
 
-    git grep -rniE 'severity' -- .github/
-    .github/workflows/dependency-review.yml:33:          fail-on-severity: low
-    .github/workflows/zizmor.yml:6:# The gate runs zizmor's regular persona at --min-severity=low: it fails the
-    .github/workflows/zizmor.yml:12:# low-severity hygiene findings (undocumented permissions, missing concurrency,
-    .github/workflows/zizmor.yml:65:        run: uvx --no-build "zizmor@${ZIZMOR_VERSION}" --strict-collection --min-severity=low --format=sarif . > results.sarif
-    .github/workflows/zizmor.yml:84:        run: uvx --no-build "zizmor@${ZIZMOR_VERSION}" --strict-collection --min-severity=low --format=plain .
+    git grep -n 'const Threshold' -- test/scanseverity/scanseverity.go
+    test/scanseverity/scanseverity.go:71:const Threshold = 7.0
 
-Whether the analysis job's own conclusion turns on a finding at all was not
-measured. What is established is that nothing in this tree sets the threshold, so
-if one is in force it is a repository setting rather than something a reader of
-this repository can see.
+The number stands above as the output of the command that produces it rather than
+as a sentence stating it, so a reader who doubts this page re-runs one line. The
+argument for that value against a lower one is in the package beside it and is
+not repeated here.
+
+What belongs in this document is the shape of the decision. The threshold is
+applied after the findings are uploaded, so it decides what stops a merge and
+never what is reported: a finding under it is still raised, still on the code
+scanning surface and still somebody's.
+
+It judges the file the analyser wrote rather than asking the code scanning
+surface what it made of it. That keeps the verdict offline and identical on a
+pull request from a fork, where that surface is not readable, and it means the
+same file judged twice gives the same answer. The reading fails closed on the
+three shapes in which a pass would mean it had read nothing, and those are
+fixtures in the suite rather than an assurance in this paragraph:
+
+    go test ./test/scanseverity/ -run TestTheReadingFailsClosed -count=1
+
+What is still not measured is whether the code scanning surface would have failed
+this check on its own. That is a repository setting rather than something a
+reader of this repository can see, and the threshold above neither depends on it
+nor replaces it.
 
 `DCO sign-off`. Adopted unchanged, and already running. The certificate is the
 same certificate whatever the artefact is.
