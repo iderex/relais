@@ -144,9 +144,19 @@ jobs:
         # GOPROXY=off refuses any module download. GOFLAGS=-mod=readonly refuses
         # an edit to go.mod, so a missing requirement is reported rather than
         # added. GOTOOLCHAIN=local pins the compiler to the one the step above
-        # installed: with the default setting a go.mod asking for a newer release
-        # makes the toolchain itself an unpinned input the lock file says nothing
-        # about, downloaded mid-build.
+        # installed, so a go.mod asking for a newer release fails here rather than
+        # fetching a toolchain the lock file says nothing about mid-build.
+        #
+        # That last one is stated here and not relied on from elsewhere, and it is
+        # written at the step rather than at the job because it is the property
+        # this step is about. setup-go already exports the same value for every
+        # step of every job in this tree, which is a fact about that action's
+        # current behaviour rather than something this file asks for:
+        #
+        #     GOTOOLCHAIN='local'
+        #
+        # in its own log. Setting it again costs nothing and removes the day the
+        # action changes from the list of things that could quietly unpin this.
         #
         # The output goes outside the checkout for the reason the build gate
         # states: `go build ./...` writes its executable into the working
