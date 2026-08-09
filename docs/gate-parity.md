@@ -21,17 +21,50 @@ and each owes a reason.
 ## What this repository requires, at the same commit
 
     gh api repos/iderex/relais/rulesets/20487474 --jq '{enforcement, bypass: .bypass_actors, types: [.rules[].type]}'
-    {"bypass":[],"enforcement":"active","types":["deletion","non_fast_forward","pull_request"]}
+    {"bypass":[],"enforcement":"active","types":["deletion","non_fast_forward","pull_request","required_status_checks"]}
 
-No required status check exists here at all, so the distance is the whole list.
-Several of the checks below already run on every pull request; none of them is
-required to be green before a merge, which is a different statement and is what
-issue #29 changes.
+    gh api repos/iderex/relais/rulesets/20487474 --jq '[.rules[] | select(.type=="required_status_checks") | .parameters.required_status_checks[].context]'
+    ["Audit workflows (zizmor)","Build","DCO sign-off","Lint","Reject Trojan Source Unicode","Test","dependency-review"]
+
+Seven contexts have to be green before a merge. This section said none did, which
+was true when it was written and stopped being true without anything here
+noticing, and correcting it is issue #162.
+
+That is seven of the eight issue #29 asked for. The eighth is `CodeQL`, which
+runs on every pull request and is not required, and no reason for leaving it out
+is recorded where this document can read one.
+
+Three of the checks that run here are outside the requirement. Read off the head
+of a pull request rather than from the workflow files, and restricted to the app
+that runs the jobs in this tree:
+
+    gh api repos/iderex/relais/commits/54a4a73dfa53f1af7812f5f422575bf4df1b4a91/check-runs --jq '[.check_runs[] | select(.app.slug=="github-actions") | .name] | unique | .[]'
+    Audit workflows (zizmor)
+    Build
+    CodeQL
+    DCO sign-off
+    Dependencies
+    Documentation
+    Lint
+    Reject Trojan Source Unicode
+    Test
+    dependency-review
+
+`CodeQL`, `Dependencies` and `Documentation` are the three in that output and not
+in the requirement. The distance from the reference is therefore one granted
+requirement short of what was asked for, plus the elements below that are not
+built yet, rather than the whole list.
+
+The strict policy is off, so a branch does not have to be up to date with the
+default branch before it merges:
+
+    gh api repos/iderex/relais/rulesets/20487474 --jq '[.rules[] | select(.type=="required_status_checks") | .parameters.strict_required_status_checks_policy]'
+    [false]
 
 ## Per element of the reference gate
 
 `build`. Adopted. A tree that does not compile makes every other result
-meaningless. It runs here already and #29 makes it required.
+meaningless. It runs here and is required, as `Build`.
 
 `ABI floor build`. Dropped. It exists because a plugin is loaded into a host
 process whose interface version it must not exceed. Nothing loads this service
@@ -50,6 +83,58 @@ release is issue #113.
 project chose, in issue #22. Two check names there are one analyser configured for
 one language; here the second lens is a different tool entirely and is issue #88,
 which does not pretend to be the same element.
+
+What that analysis is pointed at, and how, is in the workflow rather than
+described here:
+
+    git grep -n 'languages:\|build-mode:\|queries:' -- .github/workflows/codeql.yml
+    .github/workflows/codeql.yml:77:          languages: go
+    .github/workflows/codeql.yml:81:          build-mode: autobuild
+    .github/workflows/codeql.yml:87:          queries: security-extended
+
+What it does not cover is recorded for issue #87, so a green result is not read
+as coverage it does not provide. None of the following is a measurement. Each is
+a claim about the kind of question this analyser answers, and the reason it is
+worth writing down is that every one of them is a class this particular service
+is exposed to.
+
+Concurrency. A race between a publisher's write and a subscriber's read, or a
+lock held across a network wait, is not the shape a taint analysis is looking
+for. The race detector in the test suite is the tool for that class, and it sees
+only what a test actually executes.
+
+Resource cost. An allocation per packet, a buffer that grows with a stranger's
+input, or a loop whose cost is quadratic in the number of participants are
+correctness-neutral to the analyser and are most of what the resource budget in
+this project rests on.
+
+Whether a decision is the right decision. A path from a credential to an
+authorisation check is visible; whether the powers that credential carries are
+the powers actually enforced is a question about meaning, and no analyser reads
+`docs/decisions/admission.md`.
+
+Key handling away from the call site. A signature verified correctly in the code
+and a key distributed to the wrong place read identically from the source.
+
+Code the build does not compile. The mode is autobuild, so what is analysed is
+what the ordinary build produces on the runner. Anything behind a build
+constraint that the runner does not select is not read at all.
+
+There is also no severity threshold set here, which is the second thing issue
+#87 asks for and does not yet have. Two of the neighbouring gates set one and
+this workflow sets none:
+
+    git grep -rniE 'severity' -- .github/
+    .github/workflows/dependency-review.yml:33:          fail-on-severity: low
+    .github/workflows/zizmor.yml:6:# The gate runs zizmor's regular persona at --min-severity=low: it fails the
+    .github/workflows/zizmor.yml:12:# low-severity hygiene findings (undocumented permissions, missing concurrency,
+    .github/workflows/zizmor.yml:65:        run: uvx --no-build "zizmor@${ZIZMOR_VERSION}" --strict-collection --min-severity=low --format=sarif . > results.sarif
+    .github/workflows/zizmor.yml:84:        run: uvx --no-build "zizmor@${ZIZMOR_VERSION}" --strict-collection --min-severity=low --format=plain .
+
+Whether the analysis job's own conclusion turns on a finding at all was not
+measured. What is established is that nothing in this tree sets the threshold, so
+if one is in force it is a repository setting rather than something a reader of
+this repository can see.
 
 `DCO sign-off`. Adopted unchanged, and already running. The certificate is the
 same certificate whatever the artefact is.
@@ -168,8 +253,9 @@ artefact they are running cannot check that it is the artefact they were given.
 
 ## What this document is not
 
-It is not a claim that any of the adopted elements is required here today. The
-second command above is the authority for that, and it says none of them is.
+It is not a claim that an adopted element is required here merely because it runs.
+The two commands under what this repository requires are the authority for that,
+and they name seven contexts and no others.
 
 It is not a schedule, and it names no order. Which of these lands first is decided
 by the milestones, not here.
