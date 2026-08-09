@@ -1,0 +1,75 @@
+# The documentation gate.
+#
+# The code in this tree is formatted, vetted and linted before it merges. The
+# documents were read by whoever wrote them. That asymmetry is the wrong way
+# round for this repository, because the documents are where the measurements,
+# the commands an operator will paste, and the promises about what this service
+# does with a conversation actually live. A wrong sentence in a decision record
+# outlives a wrong line of code, because nothing runs it.
+#
+# What the rules are and what each one is for is in the package they are written
+# in, `test/doclint`, beside the property each holds. They are not listed here:
+# a list in a workflow file drifts against the table that decides.
+#
+# What the gate cannot decide is recorded in docs/gate-parity.md rather than
+# left for a reader to discover. Nothing here re-runs a command to see whether
+# the output printed beside it is still what that command produces, so a page
+# whose figures were true a year ago passes every rule in it.
+#
+# The suite runs these tests too, so this job repeats about a second of work. It
+# exists because the documentation needs a check-run name of its own for a branch
+# protection rule to require, and a required check named `Test` would tie the
+# documentation to every other test in the tree.
+#
+# Hardened the same way as the other workflows here: actions SHA-pinned with a
+# version comment, checkout with persist-credentials false, permissions denied at
+# the top level and granted only on the job.
+name: Documentation
+
+on:
+  pull_request:
+    branches: ["**"]
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The check-run name this produces is quoted literally by the branch protection
+  # request in #29, the same as the build, style, test and dependency gates, so it
+  # changes only together with that issue.
+  documentation:
+    name: Documentation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up the toolchain
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # Read from go.mod, the same single place every other gate reads it
+          # from.
+          go-version-file: go.mod
+          check-latest: false
+          # No third-party dependency yet, so no go.sum for a cache key to hash.
+          # It comes back with the first dependency rather than with an issue.
+          cache: false
+
+      - name: Judge every document in the tree
+        # Verbose, because the suite prints how many documents, links, blocks and
+        # documented paths it read. A run that judged nothing exits zero exactly
+        # like a run that judged everything and was happy, and the counts in the
+        # log are what tell the two apart. The suite fails closed on that too: it
+        # asserts an anchor document was found rather than trusting the walk.
+        run: go test ./test/doclint/ -count=1 -v

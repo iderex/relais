@@ -69,7 +69,30 @@ are the same kind of attack surface in both repositories.
 
 `prettier`. Adapted, and split in two, because one tool there covers both jobs.
 The code half is the language's own formatter inside the style gate, which landed
-under issue #19. The documentation half is issue #94.
+under issue #19. The documentation half landed under issue #94 as its own gate,
+and it is a deviation rather than a copy: the reference formats its written
+surfaces, and this one judges what they claim. A link resolves, a fragment names a
+heading that exists, a repository path written in the prose is a path in the
+repository, a block of output carries the command that produced it, and a command
+closes the quotes it opens.
+
+That last pair is where the adaptation earns its cost, and the gap underneath it
+is the reason this paragraph is longer than the others. Nothing in that check runs
+a documented command to see whether the output printed beside it is still what
+that command produces. Every figure in this document was true when it was pasted
+and no route re-reads any of them, so a page whose numbers went stale a year ago
+passes the gate exactly like one written this morning, and it passes while
+carrying the one thing this project's own rule about evidence exists to prevent: a
+number a reader believes because a command is sitting above it. The check makes
+the absence of a command refusable and says nothing about the truth of an output.
+
+Closing it means a route that executes documentation rather than a stricter reader
+of it, which is a different kind of artefact with its own failure modes: a
+documented command that reaches the network, costs money, or changes state is one
+a gate must not run on every pull request. Nothing on the board asks for it today,
+and that is a reading of the board rather than a command's answer. It is recorded
+here because the gap is larger than what was closed, and a parity document that
+recorded only the half that landed would be the same defect one level up.
 
 `dependency-review`. Adopted unchanged, and already running.
 
