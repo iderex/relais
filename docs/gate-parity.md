@@ -154,9 +154,53 @@ nor replaces it.
 `DCO sign-off`. Adopted unchanged, and already running. The certificate is the
 same certificate whatever the artefact is.
 
-`Deterministic PR-hygiene checks`. Adopted, in issue #93. The reference's version
-reads a pull request body for the fields its process requires; the fields here are
-this project's own, and the determinism is the part being copied.
+`Deterministic PR-hygiene checks`. Adopted, and already running as `PR hygiene`,
+under issue #93. The reference's version reads a pull request body for the fields
+its process requires; the fields here are this project's own, and the determinism
+is the part being copied. Five properties are refused: an issue is resolved as
+closed by the change, the means section carries something the template did not
+already write, a block of figures in the body carries the command that produced
+it, every commit message has a subject and a blank line under it, and every file
+touched is inside the `Scope:` the closing issue declares. What each rule is and
+why is in `test/prhygiene` beside the property it holds.
+
+Determinism is what the job is arranged around rather than a claim about it. One
+query runs, its response is written to a file, and the verdict is a function of
+that file, so a reader can re-run the query and hold the input the gate saw. The
+reading fails closed on a response carrying no pull request, one carrying no
+commit, and one carrying another page of anything, and those are fixtures in the
+suite rather than an assurance in this paragraph:
+
+    go test ./test/prhygiene/ -run TestTheReadingFailsClosed -count=1
+
+What it cannot decide is the larger half, and it is recorded here so a green
+result is not read as a reviewed body. It refuses an empty box and never a false
+statement. A means sentence naming the wrong means passes, and whether the answer
+is right is the judgement the contribution guide already says review makes. An
+evidence block whose command was never run passes, and so does one whose output
+stopped being true a year ago, which is the same gap the documentation rules
+carry two sections above and for the same reason: nothing here executes a
+documented command to see what it produces now.
+
+A commit message stating neither what changed nor what failure it prevents
+passes. That is what `CONTRIBUTING.md` actually asks of a message, and no reading
+of the message decides it; what the rule holds is the shape every git view
+assumes, which is a subject and a break.
+
+The scope rule is the weak test of one topic and it refuses, which is what issue
+#93 asks for. It compares paths and cannot tell work that belongs to an issue
+from work that merely lands in the same directory, so two unrelated topics inside
+one declared scope pass. In the other direction the consequence is worth stating
+because it falls on the author rather than on the gate: where a change lands
+outside the declared scope the repair is the issue and not the diff. The scope
+was written before the means was chosen, the means put the work somewhere else,
+and the `Scope:` line is corrected before the change lands. That is the
+contribution guide's own answer to a change that does not fit, one rung earlier,
+and it is a heavier procedure than a check that merely reported the crossing
+would have been.
+
+The template's other two sections, the evidence and what was not checked, are not
+judged at all. Issue #93 names five mechanical items and neither is among them.
 
 `Enforce greppable invariants`. Adopted, in issue #92. The invariants themselves
 are this project's, and the shape of the check is what carries over.
