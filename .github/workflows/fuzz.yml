@@ -1,0 +1,141 @@
+# The fuzzing gate over the surfaces that take bytes from strangers.
+#
+# Issue #91 asks for a short pass on every pull request and a longer one on a
+# schedule, and the reason for the pair is the two failures they catch. The short
+# pass catches a regression in the change that caused it, while somebody is still
+# looking at that change. The longer pass is what finds the input a thirty second
+# run was never going to reach.
+#
+# THE TARGET LIST IS NOT WRITTEN HERE. It is asked of the toolchain, so a target
+# added in `test/fuzz` is fuzzed by this job without anybody remembering to add a
+# line. Which packages owe a target is a separate question and a separate
+# refusal, derived in `test/fuzz` from what the tree imports and run by the unit
+# gate rather than here.
+#
+# WHAT A CRASH IS. Not a finding to triage: a defect, with an issue, a fix and the
+# input that produced it kept forever as a corpus entry. The toolchain writes that
+# input under `test/fuzz/testdata/fuzz/<target>/`, which is inside the checkout
+# and therefore thrown away with the runner, so the step below prints it into the
+# log. A crash whose input is lost is a crash that will be found again next year.
+#
+# Hardened the same way as the other workflows here: actions SHA-pinned with a
+# version comment, checkout with persist-credentials false, permissions denied at
+# the top level and granted only on the job.
+name: Fuzz
+
+on:
+  pull_request:
+    branches: ["**"]
+  push:
+    branches: [main]
+  # The longer pass. Weekly rather than nightly: nothing in this tree changes
+  # between two nights that a thirty second pass on every pull request did not
+  # already see, and a schedule nobody reads is worse than one that fires when
+  # there is something to read.
+  schedule:
+    - cron: "17 4 * * 1"
+  # So the longer pass can be asked for without waiting for the schedule, which
+  # is what somebody investigating a suspected defect needs.
+  workflow_dispatch:
+
+# Deny by default; the job takes only what it needs.
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The check-run name this produces is quoted literally by the branch protection
+  # request in #29, the same as the build, style, test, coverage, documentation
+  # and pull request hygiene gates, so it changes only together with that issue.
+  fuzz:
+    name: Fuzz
+    runs-on: ubuntu-latest
+    # Above the longest pass below, with room for the build and for a target
+    # count that grows. A job that is killed by its own timeout reports a fuzzing
+    # run that found nothing, which is the one verdict this must never produce by
+    # accident.
+    timeout-minutes: 30
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up the toolchain
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          check-latest: false
+          cache: false
+
+      - name: Fuzz every target the toolchain reports
+        env:
+          # Per target rather than for the whole job, because the number that
+          # matters is how long one target ran and a shared budget would give the
+          # last target whatever the earlier ones left.
+          #
+          # Thirty seconds on a pull request is chosen against the feedback loop
+          # rather than against thoroughness: it is short enough to sit beside the
+          # other gates and it is the pass that has to catch a regression in the
+          # change that caused it. Five minutes on the schedule and on a manual
+          # run is where the thoroughness is bought.
+          SHORT_PASS_SECONDS: "30"
+          LONG_PASS_SECONDS: "300"
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+
+          seconds="$SHORT_PASS_SECONDS"
+          if [ "$EVENT" = "schedule" ] || [ "$EVENT" = "workflow_dispatch" ]; then
+            seconds="$LONG_PASS_SECONDS"
+          fi
+
+          # Asked of the toolchain rather than listed here. A target added to
+          # test/fuzz is fuzzed from the moment it exists.
+          targets=$(go test ./test/fuzz/ -list 'Fuzz.*' | grep '^Fuzz' || true)
+          count=$(printf '%s' "$targets" | grep -c '^' || true)
+          echo "$count target(s) to fuzz for ${seconds}s each, on a $EVENT run:"
+          echo "$targets"
+
+          # A run with no target passes exactly like a run that fuzzed everything
+          # and found nothing. That is the shape this refuses: the unit gate
+          # refuses a package that owes a target, and this refuses a job that
+          # found none to run.
+          if [ "$count" -eq 0 ]; then
+            echo "::error::The toolchain reported no fuzz target in test/fuzz, so this job fuzzed nothing. A pass over no targets is not a pass, and it is refused."
+            exit 1
+          fi
+
+          rc=0
+          for target in $targets; do
+            echo "::group::$target for ${seconds}s"
+            # -run '^$' so the seed corpus is exercised by the fuzzing itself
+            # rather than a second time as ordinary tests, which the unit gate
+            # has already done.
+            go test ./test/fuzz/ -run '^$' -fuzz "^${target}\$" -fuzztime "${seconds}s" || rc=$?
+            echo "::endgroup::"
+            if [ "$rc" -ne 0 ]; then
+              break
+            fi
+          done
+
+          if [ "$rc" -ne 0 ]; then
+            # The input that produced the crash is written into the checkout and
+            # dies with the runner, so it is printed here. This is the whole of
+            # what somebody needs to reproduce it and to commit it as a corpus
+            # entry beside the fix.
+            echo "::error::A fuzz target failed. The input is below; it belongs in test/fuzz/testdata/fuzz/ in the same change that fixes the defect."
+            # Asked of git rather than of file timestamps: what is wanted is the
+            # corpus entry this run wrote, and git is what knows which files were
+            # not there when the checkout happened.
+            git status --porcelain -- test/fuzz/testdata | awk '{print $2}' | while read -r written; do
+              echo "--- $written"
+              cat "$written"
+            done
+            exit "$rc"
+          fi
