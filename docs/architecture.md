@@ -17,14 +17,18 @@ Recorded for issue #16. It is short because a long one does not get read.
     bench/                   the measuring instrument, outside the build of the service
     deploy/                  the artefacts an operator runs
     docs/decisions/          one decision per file
+    test/                    suites whose subject is the tree rather than one package
     testdata/                fixtures the tests assert against, byte for byte
 
-Each of those directories carries a readme saying what belongs in it and what
-does not. This document is the part that is about the relationships between them.
+Every directory above carries a readme saying what belongs in it and what does
+not, except `testdata/`, which holds bytes a test asserts against and no prose.
+This document is the part that is about the relationships between them.
 
 ## The dependency directions
 
-Stated in the form a test can be written against, which is issue #95.
+Stated in the form a test is written against, which is issue #95, and each one is
+quoted into that test word for word, so a failure reads as this document rather
+than as an identifier a reader has to go and look up.
 
 `internal/mediaplane` may not import `internal/forwarding`, and may not import
 `internal/orchestration` or `internal/api`. It sits under both sides and depends
@@ -49,6 +53,26 @@ the wire format does.
 
 `cmd/relais` may import anything under `internal/`. Nothing may import
 `cmd/relais`.
+
+## What refuses a violation of them
+
+`test/architecture` holds the seven above as a table and puts every import in
+every Go file in this tree through it, test files included. An orchestration test
+reaching past the fake to the real forwarding core is the failure the section
+below names in its own words, so a reader that skipped test files would miss the
+case the directions exist for.
+
+It reads the tree with the language's own parser in import-only mode rather than
+through the build system, so a direction is measurable in a tree that does not
+compile and the answer needs no module download and no network.
+
+The bound on it, because a green suite says less here than it looks like it says.
+The check decides which package may import which and nothing else. A direction
+over a package holding no Go file has nothing to refuse: `internal/forwarding`
+carries a readme and no code today, so the two directions about it pass by having
+no subject rather than by being obeyed. What separates that from a run that found
+nothing is printed on every run, as the number of imports and the number of
+packages they were read from.
 
 ## What these directions buy
 
@@ -93,6 +117,10 @@ Which packages exist inside `internal/forwarding` or `internal/orchestration`.
 Those are shaped by the domain model in issue #31 and the API contract in issue
 #43, and a layout that named them now would be guessing.
 
-Whether the directions above are enforced. They are not, today. Nothing refuses
-an import that breaks one, and until issue #95 lands this document is a rule a
-person applies by reading a diff.
+Whether the other two structural rules issue #95 names are enforced. They are
+not. That the forwarding core never learns who a participant is, and that the
+degradation decision lives in one place, are both decidable from code that has
+not been written, so a test for either would count to zero and report success.
+Two guards going green because there is nothing there are worse than two absent
+ones, because the suite then says the rules are held. Neither is in the table
+above, and this document does not hold them.
