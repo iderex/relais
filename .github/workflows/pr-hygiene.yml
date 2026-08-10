@@ -1,0 +1,138 @@
+# The deterministic pull request hygiene gate.
+#
+# Everything else in this repository judges the change. This judges the page the
+# change arrives on: whether an issue is actually closed by it, whether the
+# question about the means was answered rather than left as the template wrote
+# it, whether a figure in the body carries the command that produced it, whether
+# the commit messages have the shape every git view assumes, and whether the
+# files touched are inside the scope the closing issue declares.
+#
+# What the rules are, what each one is for, and the four things this gate cannot
+# decide are in the package the rules are written in, `test/prhygiene`. They are
+# not listed here: a list in a workflow file drifts against the table that
+# decides. What it cannot decide is also recorded in docs/gate-parity.md, so a
+# green result here is not read as a reviewed body.
+#
+# Deterministic is the property being copied from the reference gate rather than
+# the rules themselves. The job makes exactly one network call, writes what it
+# returned to a file, and judges that file offline. So the same pull request
+# judged twice gives the same verdict, a reader can re-run the query and get the
+# input this gate saw, and nothing between the fetch and the verdict can differ
+# between two runs.
+#
+# It runs on pull_request only. There is no pull request on a push, and a job
+# that started there would have nothing to fetch and would have to either fail
+# or pass vacuously, which are the two shapes this repository refuses elsewhere.
+#
+# Hardened the same way as the other workflows here: actions SHA-pinned with a
+# version comment, checkout with persist-credentials false, permissions denied at
+# the top level and granted only on the job. The pull request number reaches the
+# shell through the environment rather than through an expression inside a run
+# block, which is the shape that keeps a value somebody else controls out of the
+# script being assembled.
+name: PR hygiene
+
+on:
+  pull_request:
+    branches: ["**"]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The check-run name this produces is quoted literally by the branch protection
+  # request in #29, the same as the build, style, test and documentation gates,
+  # so it changes only together with that issue.
+  hygiene:
+    name: PR hygiene
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up the toolchain
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # Read from go.mod, the same single place every other gate reads it
+          # from.
+          go-version-file: go.mod
+          check-latest: false
+          # No third-party dependency yet, so no go.sum for a cache key to hash.
+          # It comes back with the first dependency rather than with an issue.
+          cache: false
+
+      - name: Fetch the pull request
+        # The whole of the network this gate touches, in one call, before
+        # anything judges anything. The closing issues are the linkage GitHub
+        # resolved rather than a text match on the body, which is the difference
+        # between a closing keyword that works and one sitting inside a code
+        # block.
+        #
+        # The page sizes are generous and the reading refuses a response that
+        # carries another page, so a change larger than one page is a failure
+        # naming what was truncated rather than a verdict on the part that
+        # arrived.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.event.repository.name }}
+          NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          gh api graphql \
+            -F owner="$OWNER" -F name="$REPO" -F number="$NUMBER" \
+            -f query='
+              query($owner: String!, $name: String!, $number: Int!) {
+                repository(owner: $owner, name: $name) {
+                  pullRequest(number: $number) {
+                    number
+                    body
+                    closingIssuesReferences(first: 50) {
+                      nodes { number body }
+                      pageInfo { hasNextPage }
+                    }
+                    commits(first: 100) {
+                      nodes { commit { oid message } }
+                      pageInfo { hasNextPage }
+                    }
+                    files(first: 100) {
+                      nodes { path }
+                      pageInfo { hasNextPage }
+                    }
+                  }
+                }
+              }' > pull-request.json
+
+          # A fetch that wrote nothing exits zero on some shapes of failure, and
+          # the reading below would then report a response carrying no pull
+          # request rather than a fetch that did not happen. Both are refusals,
+          # and this one names the right cause.
+          if [ ! -s pull-request.json ]; then
+            echo "::error::The query wrote no response, so there is nothing to judge. That is a broken fetch rather than a clean pull request."
+            exit 1
+          fi
+          echo "fetched $(wc -c < pull-request.json) byte(s) for pull request #$NUMBER"
+
+      - name: Judge the shape of the pull request
+        # Verbose, because the suite prints how many files, commits and closing
+        # issues it read, the scope it compared against, and every rule that had
+        # nothing to decide. A run that judged an empty view exits zero exactly
+        # like a run that judged a whole change and was happy, and the counts in
+        # the log are what tell the two apart.
+        #
+        # Absolute, because the suite runs with its own package directory as the
+        # working directory rather than this one, and a relative path would
+        # resolve under test/prhygiene there.
+        env:
+          RELAIS_PULL_REQUEST: ${{ github.workspace }}/pull-request.json
+        run: go test ./test/prhygiene/ -count=1 -v
