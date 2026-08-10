@@ -269,7 +269,9 @@ Each of these is a deviation upward, and each exists because this is a service
 carrying live media rather than a plugin.
 
 Load and soak evidence, issue #99. A plugin's behaviour after six hours under load
-is not a question anybody asks; for this it is most of the question.
+is not a question anybody asks; for this it is most of the question. It is four
+pieces of evidence rather than one, and the section under this list is where they
+are set out.
 
 A resource budget guarded against regression on a schedule, issue #68. The
 reference has no counterpart because it is not selling a resource figure. This
@@ -309,6 +311,110 @@ stated author is a field anybody can write.
 
 A reproducible release from a tag, issue #112. An operator who cannot rebuild the
 artefact they are running cannot check that it is the artefact they were given.
+
+## Load and soak evidence
+
+Recorded for issue #99. Four pieces of evidence stand where the reference gate has
+nothing at all, and they are gathered here rather than left one to an issue apiece
+because the argument only holds when they are read together. Separately each is a
+measurement. Together they are the answer to whether a deployment is still working
+after a week nobody watched it.
+
+None of the four exists. All of them run on the bench, and the bench today is one
+file saying where the instrument will be made:
+
+    git ls-files bench/
+    bench/README.md
+
+So everything below is what this document asks of each piece, with the issue that
+delivers it. None of it describes something that runs.
+
+The budget guard is issue #68. It measures the recorded budget lines against the
+mainline on a machine whose shape is stated, and reports a figure that has moved
+beyond a derived tolerance as a finding naming the range of commits it appeared
+in. It is the only one of the four that runs on a clock, and what this document
+asks for is at least once a week. The week is paid for twice: once in the time a
+resource claim is wrong while nothing has noticed, and once in the commits that
+have to be bisected afterwards to say which change did it. Weekly rather than
+nightly because a shared runner is not a laboratory and issue #68 derives its
+tolerance from measured run-to-run variation rather than from a guess, and a
+tighter cadence buys attribution with noise. Weekly rather than monthly because a
+month of commits is where attribution stops being worth the run at all.
+
+The soak is issue #69. It holds a stated load for stated hours with participants
+joining and leaving throughout, samples memory, handles, thread counts, open
+sessions and internal delay, and judges drift against a stated rule instead of
+against a chart. It runs on no clock. What this document asks for is one run per
+release, and one before any release whose notes carry a resource figure, because
+what it finds is what an operator meets after a month rather than after a merge.
+Its detection delay is therefore the gap between two releases, and that gap has no
+end yet:
+
+    gh api repos/iderex/relais/releases --jq 'length'
+    0
+
+The past-the-ceiling measurement is issue #70. It pushes a host beyond its limit
+deliberately and records what that costs the sessions already on it, whether new
+work is refused cleanly rather than accepted and starved, and how far ahead of the
+participants the health and metrics surfaces saw it coming. What this document
+asks for is one run per release, and one more whenever the degradation policy or
+the placement rule changes, since those two are what it is checking. Its detection
+delay is the soak's, for the soak's reason.
+
+The network characterisation is issue #42. It runs a stated matrix of loss, delay,
+jitter and bandwidth conditions and records what happens to the picture, to the
+audio, to the delay and to recovery once conditions improve. What this document
+asks for is one run per release, and one more whenever layer selection or
+bandwidth allocation changes. Its detection delay is the soak's again.
+
+What the four have in common is the part that has to be said plainly rather than
+left for a reader to work out. Not one of them runs on a pull request, so not one
+of them stops a bad merge. They detect, at the delays above, and a detection is a
+finding written after the change is already on the mainline and possibly already
+in somebody's deployment. The two commands under what this repository requires are
+the authority, and none of the four is among what they name:
+
+    gh api repos/iderex/relais/rulesets/20487474 --jq '[.rules[] | select(.type=="required_status_checks") | .parameters.required_status_checks[].context]'
+    ["Audit workflows (zizmor)","Build","DCO sign-off","Lint","Reject Trojan Source Unicode","Test","dependency-review"]
+
+What that leaves open is a regression that lands and is not found until the next
+run. For the budget guard the window is a week of commits. For the other three it
+is a release, which is unbounded today because nothing has been released. A
+resource figure in a document, or in an operator's decision to adopt this, can be
+wrong for that whole window without anything here noticing, and what stands
+against it in between is review, which reads a diff and cannot see five per cent.
+
+Two conditions would make any of them a required context, and both are numbers
+rather than intentions.
+
+The first is cost. One run has to finish inside five minutes on the runner the
+gate already uses. Five minutes is a choice; the measurement it was chosen against
+is not. The seven required contexts together span sixty-one seconds on a pull
+request head, from the first one starting to the last one finishing:
+
+    gh api repos/iderex/relais/commits/c71aaedffafdc2c551ac3f0f4f6b3aeee903272f/check-runs --jq '[.check_runs[] | select(.app.slug=="github-actions") | select(.name=="Audit workflows (zizmor)" or .name=="Build" or .name=="DCO sign-off" or .name=="Lint" or .name=="Reject Trojan Source Unicode" or .name=="Test" or .name=="dependency-review")] | "\([.[].started_at] | min) to \([.[].completed_at] | max)"'
+    "2026-08-10T07:49:25Z to 2026-08-10T07:50:26Z"
+
+Five times that is the point past which somebody waiting on the gate stops waiting
+and starts merging on the assumption it will come back green, which is the failure
+a longer gate actually produces.
+
+The second is noise. The run-to-run variation of a figure has to be smaller than
+half the smallest regression that figure's line is meant to refuse, so that one
+crossing decides it. Above that only a sustained series decides, and a check that
+needs a series before it can refuse anything is a report whatever it is called.
+
+The soak fails the first condition by construction and will go on failing it. It
+is hours long because hours is what it measures, and a version of it that fits in
+five minutes measures something else. It is permanently evidence rather than a
+gate, and that is a property of the question rather than a gap in the plan. The
+other three could meet both conditions one day on a reduced form of themselves,
+and the reduced form would be a different measurement under the same name, which
+is worth noticing before somebody asks for it.
+
+The cadences here are how often a piece of evidence runs. They are not an order in
+which the four are built, which is the milestones' business and is not decided
+here.
 
 ## What this document is not
 
