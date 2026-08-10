@@ -7,13 +7,12 @@
 // Package architecture holds the dependency directions from
 // docs/architecture.md in the form a machine can refuse a violation of.
 //
-// That document states the directions and then says, in its own last section,
-// that nothing enforces them and that until issue #95 lands they are a rule a
-// person applies by reading a diff. This package is the half of #95 that can be
-// decided from the code: which package may import which. The two rules #95 also
-// names, that the forwarding core never learns who a participant is and that the
-// degradation decision lives in one place, are not here, and the issue carries
-// the reason.
+// That document states the directions and names this package as what refuses a
+// violation of them. This is the half of issue #95 that can be decided from the
+// code: which package may import which. The two rules #95 also names, that the
+// forwarding core never learns who a participant is and that the degradation
+// decision lives in one place, are not here, and the record and the issue both
+// carry the reason.
 //
 // The rules are data rather than code so that the table below can be read
 // against the document beside it, and so that a fixture can be put through the
