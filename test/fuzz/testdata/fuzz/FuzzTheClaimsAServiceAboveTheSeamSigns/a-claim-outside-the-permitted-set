@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("{\"id\":\"a\",\"room\":\"room-1\",\"participant\":\"p\",\"displayName\":\"a person\",\"notBefore\":1772362800,\"expiresAt\":1772370000}")
