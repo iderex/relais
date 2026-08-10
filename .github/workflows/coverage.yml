@@ -1,0 +1,122 @@
+# The coverage bar, and it is a bar on a list rather than on the tree.
+#
+# Issue #89 asks for a high bar on the code that decides security outcomes rather
+# than a mediocre one on everything. A whole-tree percentage rewards testing
+# whatever is easiest: a project can raise it by covering a formatter while the
+# branch that decides whether a stranger is admitted goes unreached, and the
+# number goes up either way.
+#
+# So this job measures and hands the profile to `test/coverage`, which holds the
+# list of packages, the bar each one carries, and the sentence that put it there.
+# The list is in the tree rather than in this file on purpose: a bar is a
+# judgement somebody made and has to argue for, and a workflow file is not where
+# an argument can be read beside the thing it decides. Nothing about the numbers
+# is repeated here, because a second copy drifts against the one that decides.
+#
+# A SEPARATE JOB AND THEREFORE A SEPARATE NAME, which is deliberate and is the
+# opposite of what the code scanning gate does. That one judges its own output
+# inside the job that produced it, because there the threshold is a second
+# opinion about one question. Here the question is a different one: `Test` says
+# the suite passes, and this says the admission surface is reached by it. A suite
+# that is green and a surface that is covered fail on different days and send a
+# reader to different places, so they are two check runs rather than one.
+#
+# Hardened the same way as the other workflows here: actions SHA-pinned with a
+# version comment, checkout with persist-credentials false, permissions denied at
+# the top level and granted only on the job.
+name: Coverage
+
+on:
+  pull_request:
+    branches: ["**"]
+  push:
+    branches: [main]
+
+# Deny by default; the job takes only what it needs.
+permissions: {}
+
+# A newer push on the same ref supersedes an in-flight run. Measuring coverage is
+# idempotent, so cancelling a superseded run is safe.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The check-run name this produces is quoted literally by the branch protection
+  # request in #29, the same as the build, style, test, documentation and pull
+  # request hygiene gates. A required check that names a job which was renamed is
+  # worse than no requirement at all, so this name changes only together with that
+  # issue.
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Nothing here pushes, so do not leave the token in .git/config.
+          persist-credentials: false
+
+      - name: Set up the toolchain
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # Read from go.mod, the same single place the build, style and test
+          # gates read it from.
+          go-version-file: go.mod
+          check-latest: false
+          # No third-party dependency yet, so no go.sum for a cache key to hash.
+          cache: false
+
+      - name: Measure the packages the list is about
+        # `./internal/...` rather than `./...`, because that is where the surfaces
+        # issue #89 names live and it is the set the list is closed over: a
+        # package here that carries no entry reds the step below. cmd/ is wiring
+        # and test/ is the suites that read the tree, and neither decides whether
+        # a stranger is admitted.
+        #
+        # The set mode rather than count, because the bar is a proportion of
+        # statements reached and how many times a statement ran is a different
+        # question this bar does not ask.
+        #
+        # A package with no test file of its own still appears in the profile, at
+        # zero, which is what stops an unreached package from being an absence the
+        # reading cannot see.
+        #
+        # The profile is written outside the checkout, the same way the build gate
+        # keeps its output out of the tree. A run that leaves a file behind in the
+        # working copy is a run whose later steps read a tree that is not the one
+        # that was checked out.
+        run: go test ./internal/... -count=1 -covermode=set -coverprofile="$RUNNER_TEMP/coverage.out"
+
+      - name: Refuse a surface below its bar
+        # The bar, the list and the argument for each entry are in
+        # test/coverage. This step measures and hands over; it decides nothing.
+        env:
+          # Absolute, because the suite that reads it runs with its own package
+          # directory as the working directory rather than the one this step
+          # stands in. A relative path resolves under test/coverage there, which
+          # is a file that does not exist.
+          RELAIS_COVERAGE_PROFILE: ${{ runner.temp }}/coverage.out
+        run: |
+          set -euo pipefail
+
+          # A run that judged nothing exits like a run that judged everything and
+          # was happy. This is the half of that decidable before the file is
+          # opened; the reading itself refuses an empty profile, a profile with no
+          # mode line, and a profile carrying no block under internal/.
+          if [ ! -s "$RELAIS_COVERAGE_PROFILE" ]; then
+            echo "::error::The step above left no coverage profile, so there is nothing to judge. That is a broken step rather than a covered tree, and it is refused."
+            exit 1
+          fi
+
+          echo "judging $RELAIS_COVERAGE_PROFILE against the list in test/coverage"
+
+          # Verbose, because the suite prints the measured percentage of every
+          # barred surface and names every package it did not judge. Those lines
+          # are what tell a reader a green result apart from a reading that
+          # covered less than it looks like.
+          go test ./test/coverage/ -count=1 -v
