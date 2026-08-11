@@ -336,9 +336,10 @@ func Reason(id string) string {
 var commands = map[string]bool{
 	"awk": true, "base64": true, "cat": true, "curl": true, "docker": true,
 	"echo": true, "find": true, "gh": true, "git": true, "go": true,
-	"gofmt": true, "golangci-lint": true, "grep": true, "head": true,
-	"ls": true, "mkdir": true, "printf": true, "sed": true, "sort": true,
-	"tail": true, "tar": true, "uniq": true, "uvx": true, "wc": true,
+	"gofmt": true, "golangci-lint": true, "gremlins": true, "grep": true,
+	"head": true, "ls": true, "mkdir": true, "printf": true, "sed": true,
+	"sort": true, "tail": true, "tar": true, "uniq": true, "uvx": true,
+	"wc": true,
 }
 
 // keywords are the shell words a command line may open with instead of a program

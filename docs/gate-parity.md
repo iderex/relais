@@ -253,7 +253,12 @@ decision code to the admission, authorisation and placement surfaces, which is
 issue #89.
 
 Mutation testing. Adopted as reporting rather than gating, in issue #90, which is
-the same posture it has there.
+the same posture it has there, and this repository has two reasons of its own for
+it. It is slow, so it does not belong beside the checks somebody waits on before
+merging. And a surviving mutant is something for a person to read rather than a
+verdict, because a mutant can be equivalent to the code it replaced and then
+nothing can ever kill it. What is done with a survivor is a rule instead of a
+threshold, and it is under mutation evidence below.
 
 Fuzzing. Adopted and pointed at a different surface, in issue #91. There it is
 input to an authentication flow; here it is the media boundary, which takes bytes
@@ -415,6 +420,175 @@ is worth noticing before somebody asks for it.
 The cadences here are how often a piece of evidence runs. They are not an order in
 which the four are built, which is the milestones' business and is not decided
 here.
+
+## Mutation evidence
+
+Recorded for issue #90. A coverage bar says a statement was reached. This says an
+assertion would have noticed if the statement were wrong, and the two disagree
+most sharply on the surface the bar is highest on, because a suite written to
+reach a branch and a suite written to decide it look the same in a profile.
+
+What runs is `.github/workflows/mutation.yml`, weekly and on request, over every
+package the toolchain reports under `internal/`:
+
+    go list ./internal/...
+    github.com/iderex/relais/internal/mediaplane
+    github.com/iderex/relais/internal/orchestration/credential
+
+That set is not written into the workflow. It is the set the coverage bar is
+closed over, since `test/coverage` refuses a package under `internal/` carrying no
+entry, so every package this run reaches is one that list has already given a bar
+or a written reason not to.
+
+### What happens to a surviving mutant
+
+The rule is by surface, and the surfaces are read off the same list rather than
+off a second one kept here.
+
+A survivor on a surface carrying a bar becomes an issue. The argument is the bar's
+own: that list is where somebody wrote down which packages decide a security
+outcome, and a mutant that lives on one of them is a branch deciding something
+with nothing watching it.
+
+A survivor on a surface the list carries at a bar of zero is recorded in this
+section and nothing else follows. `internal/mediaplane` is that case. It is the
+vocabulary both sides of the port share and it decides nothing about who may do
+what, so a mutant living there says something about the suite rather than about a
+decision.
+
+Neither half is a threshold, and that is deliberate. An equivalent mutant can
+never be killed, so a percentage this job refused below would be a number
+somebody lowers rather than a rule anybody keeps.
+
+### One taken through it
+
+A run at the commit this section landed on produced one survivor, on the surface
+that carries a bar:
+
+    gremlins unleash --timeout-coefficient 10 ./internal/orchestration/credential
+           LIVED CONDITIONALS_BOUNDARY at verify.go:68:16
+    Mutation testing completed in 47 seconds 407 milliseconds
+    Killed: 32, Lived: 1, Not covered: 0
+    Timed out: 9, Not viable: 0, Skipped: 0
+    Test efficacy: 96.97%
+    Mutator coverage: 100.00%
+
+That line is where a token is bounded before anything decodes it, and the mutant
+moves the comparison by one position, so a token of exactly the permitted length
+is refused as oversized instead of read. It reproduces without the tool, which is
+what makes it a finding rather than a reading of a report:
+
+    sed -i '68s/len(token) > maxTokenBytes/len(token) >= maxTokenBytes/' internal/orchestration/credential/verify.go
+    go test ./internal/orchestration/credential/ -count=1
+    ok  	github.com/iderex/relais/internal/orchestration/credential	0.737s
+
+The suite is green with the bound moved, which is what the rule exists to catch: a
+bound that is checked and never approached. It went to issue #173. The other
+surface produced nothing to place:
+
+    gremlins unleash --timeout-coefficient 10 ./internal/mediaplane
+    Mutation testing completed in 18 seconds 372 milliseconds
+    Killed: 9, Lived: 0, Not covered: 0
+    Timed out: 0, Not viable: 0, Skipped: 0
+    Test efficacy: 100.00%
+    Mutator coverage: 100.00%
+
+### A timed-out mutant is a mutant nobody judged
+
+The word "a run" above is doing work. This instrument does not give the same
+answer twice on an unchanged tree, and what moves is not the survivor but how many
+mutants finish at all. The same command, three times in a row, on the tree this
+section landed on:
+
+    gremlins unleash --timeout-coefficient 10 ./internal/orchestration/credential
+    Mutation testing completed in 52 seconds 760 milliseconds
+    Killed: 27, Lived: 0, Not covered: 0
+    Timed out: 15, Not viable: 0, Skipped: 0
+    Test efficacy: 100.00%
+
+    gremlins unleash --timeout-coefficient 10 ./internal/orchestration/credential
+    Mutation testing completed in 54 seconds 705 milliseconds
+    Killed: 18, Lived: 0, Not covered: 0
+    Timed out: 24, Not viable: 0, Skipped: 0
+    Test efficacy: 100.00%
+
+    gremlins unleash --timeout-coefficient 10 ./internal/orchestration/credential
+    Mutation testing completed in 45 seconds 603 milliseconds
+    Killed: 16, Lived: 0, Not covered: 0
+    Timed out: 26, Not viable: 0, Skipped: 0
+    Test efficacy: 100.00%
+
+Fifteen, twenty-four and twenty-six of the same forty-two mutants exceeded the
+timeout, the survivor was among them every time, and the efficacy line read a
+hundred per cent on all three. That is the whole argument for the check the
+workflow makes. A timeout is not a kill: it is a mutant the run never decided, and
+the score is computed over the ones that finished, so an instrument having a bad
+minute publishes a perfect result. The finding above would have been reported by
+none of these three runs.
+
+So the job refuses a report carrying a timed-out mutant rather than publishing it,
+which is the same shape as the fuzzing gate refusing a pass over no targets and
+the coverage gate refusing an empty profile. It refuses nothing else: a survivor
+is reported and never fails the job, and this one is about the instrument rather
+than about the tree.
+
+Leaving the timeout at the tool's default is worse than a bad minute. On the same
+tree it decided nothing at all:
+
+    gremlins unleash ./internal/orchestration/credential
+    Mutation testing completed in 32 seconds 883 milliseconds
+    Killed: 0, Lived: 0, Not covered: 0
+    Timed out: 42, Not viable: 0, Skipped: 0
+    Test efficacy: 0.00%
+    Mutator coverage: 0.00%
+
+### The cost, and what the cadence is chosen from
+
+Around a minute of mutation across the two surfaces, from the runs above, on a
+machine with thirty-two logical processors running the toolchain the tree pins,
+on an operating system the gate never uses:
+
+    go version
+    go version go1.26.5 windows/amd64
+
+Weekly, and on a morning none of the other scheduled runs uses. The cadence is
+chosen against that cost rather than against thoroughness: a week of commits over
+two packages is not enough to outgrow a run this size, and a report arriving
+nightly is a report nobody opens.
+
+What the run costs on the runner is NOT MEASURED, and neither is whether the
+runner times mutants out at all. Every figure above comes from another machine and
+another operating system, under whatever else that machine was doing. The first
+scheduled run is what supplies both, and it may well be red: a runner that times a
+mutant out reds this job by the rule above, and that verdict is a statement about
+the instrument rather than about the suite. What answers it is a coefficient
+raised against a measurement from the runner, or a worker count set against one,
+and neither number should be guessed at here.
+
+### What it does not cover
+
+None of this stops a bad merge. The job runs on a clock and on request, never on a
+pull request, so it is absent from the required contexts:
+
+    gh api repos/iderex/relais/rulesets/20487474 --jq '[.rules[] | select(.type=="required_status_checks") | .parameters.required_status_checks[].context]'
+    ["Audit workflows (zizmor)","Build","DCO sign-off","Lint","Reject Trojan Source Unicode","Test","dependency-review"]
+
+It is also not a candidate for that list, because a required context has to be
+produced by a pull request and nothing here produces one. The detection delay is a
+week of commits, and what stands in between is review, which reads a diff.
+
+The reach is smaller than the rule reads, too. The paragraph above about the
+coverage bar names admission, authorisation and placement as its subjects, and the
+list in the tree holds two entries, one of which carries no bar:
+
+    git grep -n 'Package: "github.com/iderex/relais' -- test/coverage/coverage.go
+    test/coverage/coverage.go:89:		Package: "github.com/iderex/relais/internal/orchestration/credential",
+    test/coverage/coverage.go:98:		Package: "github.com/iderex/relais/internal/mediaplane",
+
+So the rule about a survivor on a barred surface has exactly one surface to be
+about today. Authorisation is issue #46 and placement is issue #75, and neither has
+code for a mutant to live in. Everything above is measured on the surface that
+exists rather than on the three the argument is written for.
 
 ## What this document is not
 

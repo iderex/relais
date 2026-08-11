@@ -1,0 +1,181 @@
+# Mutation testing over the surfaces the coverage bar classifies.
+#
+# Issue #90 asks for it because coverage says a line ran and says nothing about
+# whether an assertion would have noticed if the line were wrong. In a project
+# whose tests drive fakes and an injected clock that gap is wide, and it is
+# widest exactly where the bar is highest: a suite written to reach a branch and
+# a suite written to decide it look the same in a profile.
+#
+# REPORTING RATHER THAN GATING, and the reason is two things rather than one. It
+# is slow, so it does not belong beside the checks somebody waits on before
+# merging. And a surviving mutant is not a defect until a person has read it:
+# some are equivalent to the code they replaced and can never be killed, so a
+# threshold would be a number somebody lowers rather than a rule anybody keeps.
+# What happens to a survivor instead is a rule, in docs/gate-parity.md, and it is
+# by surface.
+#
+# So this job never refuses a change, and there is no arrangement under which it
+# could: it runs on a clock and on request, never on a pull request, and it is
+# absent from the required contexts in #29. A regression it would find lands and
+# stays landed until the next run reads it.
+#
+# WHAT IT DOES REFUSE IS ITS OWN REPORT, when the report is not one. A mutant that
+# times out was never decided, and the tool's score is computed over the ones that
+# finished, so a run having a bad minute publishes a perfect result with the
+# survivor inside the timeouts. Measured three times on an unchanged tree, in
+# docs/gate-parity.md. That is refused rather than printed, the same way the
+# fuzzing gate refuses a pass over no targets.
+#
+# THE SURFACE LIST IS NOT WRITTEN HERE. It is asked of the toolchain, the same way
+# the fuzzing gate asks for its targets, so a package added under internal/ is
+# mutated from the day it exists rather than from the day somebody remembers this
+# file. That set is the one the coverage bar is closed over: test/coverage refuses
+# a package under internal/ that carries no entry, so every package this loop
+# reaches is one that list has already judged or excused.
+#
+# Hardened the same way as the other workflows here: actions SHA-pinned with a
+# version comment, checkout with persist-credentials false, permissions denied at
+# the top level and granted only on the job.
+name: Mutation
+
+on:
+  # Weekly, on a day of its own. The measurement the cadence was chosen against
+  # is in docs/gate-parity.md, together with what it does not cover.
+  schedule:
+    - cron: "53 4 * * 3"
+  # So a run can be asked for after a change to a barred surface without waiting
+  # for the week, which is when the report is worth most.
+  workflow_dispatch:
+
+# Deny by default; the job takes only what it needs.
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # This name is not in the branch protection list in #29 and is not a candidate
+  # for it. A required context has to be produced by a pull request, and nothing
+  # here runs on one.
+  mutation:
+    name: Mutation
+    runs-on: ubuntu-latest
+    # Far above the measured run, because the measurement is from another machine
+    # and the runner's own time is unknown until the first scheduled run. A job
+    # killed by its own timeout reports a mutation run that found nothing, which
+    # is the verdict this must never produce by accident.
+    timeout-minutes: 45
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Nothing here pushes, so do not leave the token in .git/config.
+          persist-credentials: false
+
+      - name: Set up the toolchain
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # Read from go.mod, the same single place every other gate reads it
+          # from.
+          go-version-file: go.mod
+          check-latest: false
+          # No third-party dependency yet, so no go.sum for a cache key to hash.
+          cache: false
+
+      - name: Install the mutation tester
+        env:
+          # Pinned to a version rather than taken at latest, so two runs a month
+          # apart are the same instrument. It is a tool this job installs and
+          # never a dependency of the module: it is fetched here, it appears in
+          # no manifest, and the graph this project locks stays empty until the
+          # forwarding core takes its first import.
+          GREMLINS_VERSION: v0.6.0
+        run: go install "github.com/go-gremlins/gremlins/cmd/gremlins@$GREMLINS_VERSION"
+
+      - name: Mutate every surface under internal
+        env:
+          # Ten rather than the default, and the number came from runs rather
+          # than from taste. At the default, one measured run decided none of the
+          # 42 mutants on the admission surface: all 42 timed out and the tool
+          # reported an efficacy of 0.00 per cent. Ten is what got that surface
+          # decided at all. It is not enough to make the run repeatable, which is
+          # what the step below is for and what docs/gate-parity.md measures.
+          TIMEOUT_COEFFICIENT: "10"
+        run: |
+          set -euo pipefail
+
+          packages=$(go list ./internal/...)
+          count=$(printf '%s' "$packages" | grep -c '^' || true)
+          echo "$count surface(s) to mutate:"
+          echo "$packages"
+
+          # A run over no surface passes exactly like a run that mutated every
+          # one of them and killed everything. That is the shape this refuses,
+          # the same way the fuzzing gate refuses a pass over no targets.
+          if [ "$count" -eq 0 ]; then
+            echo "::error::The toolchain reported no package under internal/, so this job mutated nothing. A report over no surfaces is not a report, and it is refused."
+            exit 1
+          fi
+
+          lived=0
+          unjudged=0
+          for pkg in $packages; do
+            surface="./${pkg#github.com/iderex/relais/}"
+            slug=$(printf '%s' "$surface" | tr -c 'a-zA-Z0-9' '_')
+            report="$RUNNER_TEMP/mutation$slug.json"
+
+            echo "::group::$surface"
+            gremlins unleash \
+              --timeout-coefficient "$TIMEOUT_COEFFICIENT" \
+              --output "$report" \
+              "$surface" | tee "$RUNNER_TEMP/mutation$slug.log"
+            echo "::endgroup::"
+
+            # The machine-readable report goes into the log rather than into an
+            # artefact, for the reason the fuzzing gate prints its crash input:
+            # what the runner keeps dies with the runner, and what a reader needs
+            # is the thing they can read where they are already standing.
+            echo "::group::$surface, as the tool wrote it"
+            cat "$report"
+            echo
+            echo "::endgroup::"
+
+            # Every survivor is annotated rather than summarised, because the
+            # rule in docs/gate-parity.md is applied per mutant and needs the
+            # file and the line to be applied at all.
+            while read -r survivor; do
+              lived=$((lived + 1))
+              echo "::warning::$surface: $survivor survived. What happens next is the rule in docs/gate-parity.md, and it depends on the surface."
+            done < <(grep '^ *LIVED ' "$RUNNER_TEMP/mutation$slug.log" | sed 's/^ *LIVED *//' || true)
+
+            # Counted from the tool's own summary line rather than from the
+            # mutant list, because a timed-out mutant is reported in the totals
+            # and nowhere else. Only timeouts are counted here. A mutant the
+            # suite does not cover is the coverage bar's business and is refused
+            # there, on the surfaces that carry one.
+            timedout=$(grep '^Timed out: ' "$RUNNER_TEMP/mutation$slug.log" | grep -o '[0-9]\+' | head -1 || true)
+            unjudged=$((unjudged + ${timedout:-0}))
+          done
+
+          echo "$lived surviving mutant(s) and $unjudged undecided mutant(s) across $count surface(s)."
+
+          # A survivor is deliberately not an exit code. This reports, and what
+          # happens to one is the rule in docs/gate-parity.md rather than a
+          # refusal here.
+          if [ "$lived" -gt 0 ]; then
+            echo "::notice::A surviving mutant is not yet a defect. Read it against the rule in docs/gate-parity.md before opening anything."
+          fi
+
+          # A timeout is. It is a mutant this run never decided, while the
+          # efficacy line above is computed over the ones that finished, so a
+          # report carrying one reads as a report over everything and is not. The
+          # repair is a coefficient or a worker count measured against this
+          # runner, and neither is guessed at here.
+          if [ "$unjudged" -gt 0 ]; then
+            echo "::error::$unjudged mutant(s) timed out and were therefore never decided, so the score above covers less than it looks like. That is refused rather than published. docs/gate-parity.md carries the measurement behind this rule and what moves the number."
+            exit 1
+          fi
