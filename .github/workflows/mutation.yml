@@ -94,6 +94,20 @@ jobs:
           # no manifest, and the graph this project locks stays empty until the
           # forwarding core takes its first import.
           GREMLINS_VERSION: v0.6.0
+          # For this step only, and it is the one place in this file where the
+          # toolchain is not the one go.mod names. That version is the floor the
+          # transport library imposes, and this tool declares `go 1.25`, so a
+          # local-only compiler cannot build it. The two are different questions:
+          # the suite must be tested by the compiler this project pins, which
+          # every step below still is, while the program driving that suite is
+          # fetched for the runner and linked into nothing here.
+          #
+          # The alternative is pinning the tool down to a version 1.24 can build,
+          # and it was measured rather than assumed. On the older line the
+          # admission surface timed out 39 of its 42 mutants where this one
+          # decides them, which buys a compiler version with exactly the failure
+          # the last step of this job refuses by name. The run is in issue #90.
+          GOTOOLCHAIN: auto
         run: go install "github.com/go-gremlins/gremlins/cmd/gremlins@$GREMLINS_VERSION"
 
       - name: Mutate every surface under internal
