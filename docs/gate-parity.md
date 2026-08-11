@@ -556,14 +556,31 @@ chosen against that cost rather than against thoroughness: a week of commits ove
 two packages is not enough to outgrow a run this size, and a report arriving
 nightly is a report nobody opens.
 
-What the run costs on the runner is NOT MEASURED, and neither is whether the
-runner times mutants out at all. Every figure above comes from another machine and
-another operating system, under whatever else that machine was doing. The first
-scheduled run is what supplies both, and it may well be red: a runner that times a
-mutant out reds this job by the rule above, and that verdict is a statement about
-the instrument rather than about the suite. What answers it is a coefficient
-raised against a measurement from the runner, or a worker count set against one,
-and neither number should be guessed at here.
+The runner is a different machine and it turns out to be both quicker and
+steadier. Asked for by hand, it decided every mutant on both surfaces and found
+the same survivor:
+
+    gh run view 31478089166 --log | grep -oE '(Mutation testing completed in .*|Killed: [0-9]+, Lived: [0-9]+, Not covered: [0-9]+|Timed out: [0-9]+, Not viable: [0-9]+, Skipped: [0-9]+|[0-9]+ surviving mutant\(s\) and [0-9]+ undecided mutant\(s\) across [0-9]+ surface\(s\)\.)'
+    Mutation testing completed in 1 second 404 milliseconds
+    Killed: 9, Lived: 0, Not covered: 0
+    Timed out: 0, Not viable: 0, Skipped: 0
+    Mutation testing completed in 6 seconds 35 milliseconds
+    Killed: 41, Lived: 1, Not covered: 0
+    Timed out: 0, Not viable: 0, Skipped: 0
+    1 surviving mutant(s) and 0 undecided mutant(s) across 2 surface(s).
+
+Under eight seconds against the minute the same work takes above, which says the
+timeouts on that machine were the machine and not the surfaces. The weekly cadence
+is chosen against the local figure rather than this one, because a cadence set
+from the best number a run ever produced is a cadence that fails the first time
+the runner has a bad morning.
+
+That is ONE RUN, ASKED FOR BY HAND. No scheduled run has fired yet, and one run
+says nothing about the variation the rule above exists for. Whether the runner
+ever times a mutant out is unanswered, and it is answered by this job going red
+rather than by anything written here. If it does, the verdict is about the
+instrument rather than about the suite, and what settles it is a coefficient or a
+worker count measured against the runner rather than guessed at.
 
 ### What it does not cover
 
