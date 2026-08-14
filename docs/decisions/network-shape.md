@@ -38,18 +38,18 @@ service starts with a capability the deployment contract does not ask for and th
 headless test job in issue #18 refuses.
 
 The same media port number, TCP, inbound, optional. Some networks pass no UDP at
-all, and for those the media rides a TCP connection instead, at a cost in delay
-and in behaviour under loss that is a real degradation rather than a fallback
-nobody notices. It is the same number on purpose, so that the instruction to the
-operator remains one number rather than two. An operator who does not open it has
-a working service for every participant whose network passes UDP.
+all, and for those the media rides a TCP connection instead, at a real cost in
+delay and in behaviour under loss that a participant hears. It is the same
+number on purpose, so that the instruction to the operator stays one number. An
+operator who does not open it has a working service for every participant whose
+network passes UDP.
 
 The certificate challenge port, TCP, inbound, conditionally required. Obtaining a
 certificate over a challenge that runs on port 80 requires port 80 to be
 reachable. Which challenge a default deployment uses is issue #57, and this
-record does not settle it, so the port is listed as conditional rather than being
-quietly assumed either way. An operator who supplies their own certificate needs
-none of it.
+record does not settle it, so the port is listed as conditional and the open
+question stays where a reader meets it. An operator who supplies their own
+certificate needs none of it.
 
 Outbound, a default deployment opens name resolution and the certificate
 exception named in the federation record. Nothing else. That record is the
@@ -72,20 +72,20 @@ serves one of those and fails the other, and it fails after the room has opened.
 
 Both families are treated as ordinary rather than one being a fallback. A
 deployment on a host with no IPv6 address gathers no IPv6 candidates and says so
-at startup, which is a fact about the host rather than an error.
+at startup, and that line is a fact about the host.
 
 ## What an operator on a shared public address is told, and when
 
-At startup, on every start rather than only the first one, and before any
-participant has tried to join.
+At startup, on every start and not only the first, and before any participant
+has tried to join.
 
 The self-check in issue #81 reads the addresses the host actually holds. Where the
 only address in a family is one that cannot be reached from outside, the operator
 is told that, in that family, by name: an address inside the shared address space
 that carriers use for this, or a private address with no public address anywhere on
 the host. Both are local observations. Neither requires asking anything outside the
-host, which is what keeps this check inside the federation record rather than
-becoming a second exception to it.
+host, which is what keeps this check inside the federation record and out of a
+second exception to it.
 
 What the operator is told is what that means for them: participants outside their
 network will not reach this host on that family, the other family or the relay
@@ -122,17 +122,17 @@ Every session shares one socket and one receive path. That concentrates load whe
 a range would spread it, and the failure mode is not gradual: a receive path that
 falls behind loses packets for every session at once rather than for one.
 
-This is a performance question rather than an argument, and it is answered by
-measurement. The bench in issue #8 is the instrument. Issue #67 draws the cost per
-stream as concurrency rises, which is where a per-socket ceiling would appear as a
-bend in the curve rather than as an opinion, and issue #70 measures what happens
-past the ceiling. Until those have run, the position in this record is a design
-choice whose cost has not been measured, and it should be read that way.
+This is a performance question, and it is answered by measurement. The bench in
+issue #8 is the instrument. Issue #67 draws the cost per stream as concurrency
+rises, which is where a per-socket ceiling would appear as a bend in the curve,
+and issue #70 measures what happens past the ceiling. Until those have run, the
+position in this record is a design choice whose cost has not been measured, and
+it should be read that way.
 
 If the measurement shows the single socket is the limit before the budget in issue
-#10 is reached, what changes is the receive path rather than the operator's
-instruction. Widening the port range is the answer this record refuses, because it
-moves the cost onto the person least equipped to pay it.
+#10 is reached, what changes is the receive path, and the operator's instruction
+stays as it is. Widening the port range is the answer this record refuses, because
+it moves the cost onto the person least equipped to pay it.
 
 ## What an operator gets when media does not flow
 
@@ -145,8 +145,8 @@ anything at all from the participant, whether connectivity checks completed, and
 whether media arrived after they did. The first of those that did not happen is the
 answer, and it is the sentence an operator can act on or paste into a report.
 
-The reason it is a separate issue rather than a paragraph in the install guide is
-that a document cannot observe what happened. Issues #56 and #81 hold the parts
+It is a separate issue because a document cannot observe what happened, and an
+install guide is a document. Issues #56 and #81 hold the parts
 that run before a participant exists, and #62 holds the part that runs after one
 has tried.
 
