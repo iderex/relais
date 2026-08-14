@@ -1,9 +1,8 @@
 # Governance
 
 How decisions are made here, who makes them, and what a contributor gets back
-when they propose something. Written before the first disagreement rather than
-during it, because a project that improvises this answers its first hard question
-badly.
+when they propose something. Written before the first disagreement, because a
+project that improvises this answers its first hard question badly.
 
 Recorded for issue #109.
 
@@ -12,8 +11,7 @@ Recorded for issue #109.
 One person. This repository has a single maintainer, and every question about
 scope, architecture, what merges and what is refused ends there.
 
-That is a fact about the repository rather than a preference, and it is readable
-from the outside:
+That is a fact about the repository, and it is readable from the outside:
 
     gh api repos/iderex/relais/contributors --jq '[.[].login] | unique | .[]'
     iderex
@@ -54,7 +52,7 @@ pushes to it are refused, and that refusal reaches the maintainer too:
 The order matters more than the paperwork. An argument that lives only in a
 merged diff is an argument nobody can find later, and the reason this project
 writes the record first is that a decision defended after the fact is defended
-from the code that already exists rather than from the reasons.
+from the code that already exists, and the reasons have stopped carrying it.
 
 ## What a contributor can expect
 
@@ -62,8 +60,8 @@ An answer in the issue or on the pull request, saying yes, no, or what would
 change the answer.
 
 A reason where the answer is no. A refusal here is written in the pull request
-body rather than left as a closed tab, and it says which rule or which record it
-rests on, so a contributor can argue with the reason rather than guess at it.
+body, and it says which rule or which record it rests on, so a contributor has
+something to argue with.
 
 An argument about a rule taken as an argument about the record behind it. Most
 disagreements about a convention here turn out to be disagreements with a
@@ -73,8 +71,7 @@ Credit in the history. The commit keeps its author, and the sign-off trailer
 naming that author is a gate rather than a courtesy.
 
 No promise about how quickly any of that happens. This is one person's project
-and a waiting contributor deserves to know that before sending work rather than
-after.
+and a waiting contributor deserves to know that before sending work.
 
 ## What happens if the maintainer stops
 
@@ -106,8 +103,9 @@ Issue #109 asks for one, and it says the part that is holding it up: a code of
 conduct is a standard text plus a contact route, and the route matters more than
 the text. A reporting address that goes nowhere invites a report that is never
 received, which is worse than having no policy at all. Choosing where such a
-report arrives is the maintainer's to make, and this document records the gap
-rather than shipping a text with a dead address in it.
+report arrives is the maintainer's to make, and that choice has not been made.
+The gap is written down here; a text with a dead address in it would be the
+worse answer.
 
 Until then, behaviour here is not covered by a published policy. That sentence
 is the disclosure, and it should stay accurate rather than be softened.

@@ -1,8 +1,8 @@
 # Sovereignty: what stays on the operator's host
 
 The claim this project rests on is that an operator's conversations, and the
-personal data around them, stay on the operator's host. This document states that
-claim precisely enough that somebody could go and find it false.
+personal data around them, stay on the operator's host. It is written out below
+precisely enough that somebody could go and find it false.
 
 Recorded for issue #101.
 

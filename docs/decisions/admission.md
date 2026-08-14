@@ -41,14 +41,13 @@ the set, verification refuses a credential carrying anything outside it, and the
 refusal names the claim so that the service that issued it has something to
 repair.
 
-What that does not do is the half the paragraph above is really about, and it is
-written here rather than left to be discovered. The check reads names and never
-meanings. A credential whose `participant` field carries an account identifier is
-permitted in shape and forbidden by this record, and nothing in the tree can tell
-that apart from an opaque label, because they are the same bytes. So the rule is
-enforced against a claim nobody agreed to and unenforced against a permitted claim
-carrying the wrong thing, and the second case is still a rule a person applies by
-reading a change.
+The check reads names and never meanings, and that limit is the half the
+paragraph above is really about. A credential whose `participant` field carries
+an account identifier is permitted in shape and forbidden by this record, and
+nothing in the tree can tell it apart from an opaque label, because they are the
+same bytes. So the rule bites on a claim nobody agreed to and stays silent on a
+permitted claim carrying the wrong thing, and the second case is still a rule a
+person applies by reading a change.
 
 ## How long it is valid
 
@@ -62,8 +61,8 @@ still good. That keeps the credential a key to a door rather than a thing this
 project has to keep re-reading.
 
 Short windows limit what a leaked credential is worth, and they put a clock
-dependency in the join path. That is a real cost and it is paid rather than
-avoided, because the alternative is a long-lived token whose leak has no bound.
+dependency in the join path. That is a real cost and it is paid, because the
+alternative is a long-lived token whose leak has no bound.
 
 ## Who signs
 
@@ -111,5 +110,5 @@ clock has drifted needs to be told that and not sent looking at their token
 minting.
 
 Skew is a property of the host, so it belongs in the startup self-check in issue
-#81 rather than being discovered at the first failed join. The audit trail in
-issue #84 records the refusal along with every other admission decision.
+#81, before a join can fail on it. The audit trail in issue #84 records the
+refusal along with every other admission decision.
