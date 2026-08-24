@@ -74,8 +74,13 @@ Malformed or hostile media reaching the forwarding path. This is the largest
 surface and the one adversaries reach without a credential. Against it: the
 forwarding core holds no decoder, which the media formats record fixes as a
 property and which removes the most attacked parsing surface in this class of
-software. Refusing malformed and hostile input at the media boundary is #39.
-Fuzzing that surface is #91. Neither exists yet.
+software. Refusing malformed and hostile input at the media boundary is #39,
+which is open, and nothing in the tree refuses it. #91 is closed and its fuzzing
+landed in `test/fuzz`, pointed at the credential parser rather than at this
+surface, which the parity document already says in its own words. So the media
+boundary has neither the refusal nor a fuzzer, and it has no bytes reaching it
+either, because the forwarding core is not built. This paragraph said `Neither
+exists yet` after #91 had closed, which is #178.
 
 Exhaustion of the host by volume, from a stranger or from a participant. Against
 it: rate limits and size limits at the edge, #50. Failing closed when the pool
