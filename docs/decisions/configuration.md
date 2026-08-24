@@ -76,8 +76,11 @@ The number of audio streams a subscriber receives is derived from the room size
 and the policy in issue #37.
 
 The media plane listening socket is an operator input rather than a derivation,
-because it has to match what the operator opened. Its shape is fixed by issue #4
-and the network shape by issue #14, and both are open.
+because it has to match what the operator opened. Its shape was fixed by issue #4
+and the network shape by issue #14, both of which are closed, and what they settled
+is in `docs/decisions/media-plane-port.md` and `docs/decisions/network-shape.md`.
+This sentence said both were open. That is #178: a document reports tracker state
+as of the day it was written, and nothing here re-reads it.
 
 Where data lives, the service name and the credential material are operator inputs
 by the categories above and are not derived.

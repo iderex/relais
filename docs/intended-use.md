@@ -51,11 +51,12 @@ record](decisions/seam.md), which refuses accounts, identity, membership over ti
 and moderation policy, and in [the admission
 record](decisions/admission.md), which allows a credential to name a room, an
 opaque participant label and a set of powers, and nothing about a human being.
-Implemented by issue #45, which is not built. The mechanism that refuses a
-credential carrying a claim outside that set is built and lives in
+Implemented by issue #45, which is closed. The mechanism that refuses a credential
+carrying a claim outside that set is built and lives in
 `internal/orchestration/credential`, and it judges the names of claims and never
 their contents, so a permitted claim carrying something it should not is not
-reached by it.
+reached by it. This paragraph said #45 was not built, in the sentence before the
+one saying the mechanism is, which is #178.
 
 Nothing is recorded. There is no recording in the plan and no setting that turns
 some on, which [the data protection document](data-protection.md) states as the

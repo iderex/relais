@@ -42,11 +42,20 @@ it means this repository carries two languages and two dependency graphs before 
 carries a line of forwarding policy, and every later piece of work that locks,
 scans or reproduces the dependency graph pays for that twice.
 
-meetecho/janus-gateway is GPL-3.0. Entry 1 of issue #1 is open, so the licence of
-this repository is not settled, and a dependency whose licence would settle it by
-implication is not a choice this plan is allowed to make. This record does not
-choose it and does not rule it out on its merits. If entry 1 is answered in a way
-that permits it, the comparison is worth running again.
+meetecho/janus-gateway is GPL-3.0. When this record landed, entry 1 of issue #1 was
+open, so the licence of this repository was not settled and a dependency whose
+licence would settle it by implication was not a choice this plan was allowed to
+make. That reason no longer holds as written: entry 1 is answered and the tree
+carries the GNU Affero General Public License version 3 at `LICENSE`.
+
+THE COMPARISON THIS PARAGRAPH PROMISED HAS NOT BEEN RUN, and that is the state
+rather than a conclusion in either direction. What stood here said the comparison
+was worth running again if entry 1 was answered in a way that permits it; the answer
+arrived and nothing has been re-run against it, so this record still does not choose
+janus-gateway and still does not rule it out on its merits, and it is now saying so
+with no reason left standing underneath. Whether AGPL-3.0 permits a GPL-3.0
+dependency is a licensing question this record does not take. #178 is where the
+stale premise was found.
 
 livekit/livekit and jech/galene are complete selective forwarding units. A
 complete unit used as a library is not a library, because its routing and
