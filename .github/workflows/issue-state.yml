@@ -1,0 +1,125 @@
+# The tracker state gate.
+#
+# Every other gate here judges the tree against itself. This one judges the tree
+# against something outside it: a document may say a question is unresolved and
+# name the issue holding it, and when that issue closes the sentence is wrong
+# and nothing in a file can tell.
+#
+# What the rule is, what it is for, and the five things it cannot decide are in
+# the package the rule is written in, `test/issuestate`. They are not listed
+# here: a list in a workflow file drifts against the table that decides.
+#
+# Deterministic is the property being copied from the hygiene gate rather than
+# the rule. The job makes one network call, writes what it returned to a file,
+# and judges that file offline. So the same tree judged twice against the same
+# fetched state gives the same verdict, and nothing between the fetch and the
+# verdict can differ between two runs.
+#
+# It runs on a schedule as well as on a change, and that is not decoration. The
+# failure this exists for arrives without anybody pushing: an issue closes, and
+# a sentence written months ago stops being true while the tree it sits in is
+# untouched. A gate that only ran on a change would never see it.
+#
+# The state it judges against is fetched at the moment it runs, so a green run
+# is green as of that fetch and not for ever. That is the one direction in which
+# this gate differs from every other one here, and it is the direction the
+# subject forces.
+#
+# Hardened the same way as the other workflows here: actions SHA-pinned with a
+# version comment, checkout with persist-credentials false, permissions denied
+# at the top level and granted only on the job.
+name: Issue state
+
+on:
+  pull_request:
+    branches: ["**"]
+  push:
+    branches: [main]
+  schedule:
+    # Weekly, on a day and hour nothing else here uses, so a red result is not
+    # read as part of another run's failure.
+    - cron: "37 5 * * 2"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The check-run name this produces is quoted literally by the branch
+  # protection request in #29, the same as the build, style, test,
+  # documentation and hygiene gates, so it changes only together with that
+  # issue.
+  issue-state:
+    name: Issue state
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up the toolchain
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          # Read from go.mod, the same single place every other gate reads it
+          # from.
+          go-version-file: go.mod
+          check-latest: false
+          # No third-party dependency yet, so no go.sum for a cache key to
+          # hash. It comes back with the first dependency rather than with an
+          # issue.
+          cache: false
+
+      - name: Fetch the state of every issue
+        # The whole of the network this gate touches, in one call, before
+        # anything judges anything. Every issue in every state, projected down
+        # to the three fields a rule may use, one object per line.
+        #
+        # Pull requests come back from this endpoint under the same numbering
+        # and are marked rather than filtered out. A number that names a merged
+        # pull request would otherwise read as a closed issue, and the rule has
+        # to know the difference to leave it alone.
+        #
+        # Paging is the query's own rather than a limit chosen here. A limit
+        # would silently stop at a page boundary, and the issue this repository
+        # is oldest in would be the first to fall off it.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh api --paginate "repos/$REPOSITORY/issues?state=all&per_page=100" \
+            --jq '.[] | {number, state, pull_request: has("pull_request")}' > tracker-state.json
+
+          # A fetch that wrote nothing exits zero on some shapes of failure, and
+          # the reading below would then report a tracker carrying no issue
+          # rather than a fetch that did not happen. Both are refusals, and this
+          # one names the right cause.
+          if [ ! -s tracker-state.json ]; then
+            echo "::error::The query wrote no response, so there is nothing to judge against. That is a broken fetch rather than a clean tree."
+            exit 1
+          fi
+          echo "fetched $(wc -l < tracker-state.json) issue(s) and pull request(s)"
+
+      - name: Judge every document against it
+        # Verbose, because the suite prints how many documents and mentions it
+        # read, how many of those name a closed issue, and which numbers it
+        # could not resolve. A run that judged an empty tree exits zero exactly
+        # like a run that judged the whole of it and was happy, and the counts
+        # in the log are what tell the two apart.
+        #
+        # Absolute, because the suite runs with its own package directory as the
+        # working directory rather than this one, and a relative path would
+        # resolve under test/issuestate there.
+        env:
+          RELAIS_TRACKER_STATE: ${{ github.workspace }}/tracker-state.json
+        run: go test ./test/issuestate/ -count=1 -v
