@@ -10,6 +10,7 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -402,6 +403,96 @@ func TestATokenPastTheSizeThisProjectReadsIsRefusedOnItsLength(t *testing.T) {
 
 	if got := refusalFor(t, verifierAt(t, theMoment), token, "room-1"); got != ReasonTooLarge {
 		t.Errorf("a token of %d bytes was refused as %q, want %q", len(token), got, ReasonTooLarge)
+	}
+}
+
+// paddedPayload is an ordinary claim set with a run of padding inside its powers,
+// so that a credential can be driven to a chosen length one byte at a time. The
+// powers are the right place for it: they are carried through and never read here,
+// so padding them changes the length of the token and nothing else about it.
+func paddedPayload(pad int) string {
+	return fmt.Sprintf(
+		`{"id":"length","room":"room-1","participant":"p","powers":[%q],"notBefore":%d,"expiresAt":%d}`,
+		strings.Repeat("x", pad),
+		theMoment.Unix(),
+		theMoment.Add(time.Minute).Unix(),
+	)
+}
+
+// tokenLength is how long forge's output will be for these two segments, computed
+// rather than produced, so the search below signs once instead of a few thousand
+// times.
+func tokenLength(headerJSON, payloadJSON string) int {
+	enc := base64.RawURLEncoding
+	return enc.EncodedLen(len(headerJSON)) + len(".") +
+		enc.EncodedLen(len(payloadJSON)) + len(".") +
+		enc.EncodedLen(ed25519.SignatureSize)
+}
+
+// credentialOfExactly builds a credential of exactly n bytes that is genuine in
+// every other respect: signed by the issuer, naming the room it is presented at,
+// and inside its own window. Nothing but its length distinguishes it from the
+// credential every other test in this file starts from.
+//
+// Two spellings of the header are tried and the second is not decoration. A
+// segment grows by one or two bytes for each byte of JSON behind it, so for a
+// fixed header exactly one token length in four cannot be produced at all, and
+// maxTokenBytes is one of the lengths the minter's own header cannot reach. The
+// second spelling is that header with one byte of insignificant JSON whitespace,
+// which moves the reachable set by one and is read by the verifier as the same
+// header. Without it this test could only approach the bound from one side, which
+// is the state the issue behind it describes.
+func credentialOfExactly(t *testing.T, n int) string {
+	t.Helper()
+
+	for _, headerJSON := range []string{`{"alg":"Ed25519"}`, `{"alg":"Ed25519"} `} {
+		if token, ok := credentialUnder(headerJSON, n); ok {
+			return token
+		}
+	}
+
+	t.Fatalf("no credential of exactly %d bytes could be assembled", n)
+	return ""
+}
+
+// credentialUnder walks the padding upwards for one header spelling and reports the
+// credential that lands on n exactly, or that this spelling steps over it.
+func credentialUnder(headerJSON string, n int) (string, bool) {
+	for pad := 0; ; pad++ {
+		payloadJSON := paddedPayload(pad)
+		switch length := tokenLength(headerJSON, payloadJSON); {
+		case length == n:
+			return forge(headerJSON, payloadJSON, ed25519.NewKeyFromSeed(issuerSeed)), true
+		case length > n:
+			return "", false
+		}
+	}
+}
+
+// TestTheLengthBoundIsDrivenAcrossTheByteItTakesEffectOn is the length bound at the
+// position it occupies rather than somewhere past it.
+//
+// The test above it presents a token far over the bound, which says that something
+// long is refused and leaves the comparison free to sit one position either side of
+// where it is written. This drives the byte itself: a credential of exactly
+// maxTokenBytes is read, and the same bytes with one more appended are refused for
+// their length. The pair differs by the single byte the comparison is about, so
+// moving that comparison to >= turns the first half red.
+//
+// Both halves are needed and neither replaces the other. Only the first half moves
+// when the bound is widened by one, and only the second moves when it is deleted.
+func TestTheLengthBoundIsDrivenAcrossTheByteItTakesEffectOn(t *testing.T) {
+	admitted := credentialOfExactly(t, maxTokenBytes)
+	if len(admitted) != maxTokenBytes {
+		t.Fatalf("the credential built for this test is %d bytes, want %d", len(admitted), maxTokenBytes)
+	}
+	if _, err := verifierAt(t, theMoment).Verify(admitted, "room-1"); err != nil {
+		t.Errorf("a credential of exactly %d bytes was refused: %v", len(admitted), err)
+	}
+
+	overByOne := admitted + "x"
+	if got := refusalFor(t, verifierAt(t, theMoment), overByOne, "room-1"); got != ReasonTooLarge {
+		t.Errorf("a credential of %d bytes was refused as %q, want %q", len(overByOne), got, ReasonTooLarge)
 	}
 }
 
