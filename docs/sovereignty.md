@@ -143,7 +143,12 @@ This service can see the media it forwards. A forwarding unit reads enough of ea
 packet to route it, and today it can read all of it. End to end encrypted media
 would reduce that and would not remove it, because the frame headers have to stay
 readable for forwarding to work. Whether end to end encryption is a first release
-promise is entry 5 of issue #1, which is open and is not answered here.
+promise is entry 5 of issue #1, and the answer there is that it is not: it is
+deferred with the architecture kept open, ruled out neither now nor later. This
+document is where that answer is read rather than where it is made, and what it
+means here is the plain version. The first release does not carry it, so the
+sentence above is the whole of what this project can claim about what it reads,
+and it is not a state that ends on its own.
 
 The operator's host is a machine somebody has to secure. Everything above says
 data stays on that host. None of it says the host is safe. An operator who runs
