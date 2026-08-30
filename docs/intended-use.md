@@ -78,8 +78,14 @@ outbound connection other than certificate issuance. Not built.
 
 There is no client and no interface, so this project never speaks to a participant
 and has no surface on which to ask one for anything. That is a consequence of the
-seam. Whether a diagnostic page is ever added is entry 7 of issue #1, which is
-open.
+seam, and it describes today rather than a property nothing can change. Entry 7 of
+issue #1 is answered: a diagnostic page, and nothing more, small and without
+third-party dependencies, enough to join a room from a browser and see whether
+media flows. It is decided and not built, no date is fixed for it here, and when
+it exists this project will have one surface a participant reaches directly. What
+that surface may ask for is bounded by the seam rather than by this sentence: it
+carries no identity and no membership, because those are not this project's to
+hold.
 
 ## What remains possible for whoever controls the host
 
