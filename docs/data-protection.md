@@ -33,8 +33,12 @@ is what has to change first.
 The content of a conversation is therefore never stored. It is also not readable
 from the outside while it is in transit, because the media path is encrypted
 between each participant and this service. It is readable by this service, which
-is what a forwarding unit is; whether that changes is entry 5 of issue #1 and is
-likewise open.
+is what a forwarding unit is, and that is not a gap waiting on a decision. Entry 5
+of issue #1 answers it: end to end encrypted media is deferred with the
+architecture kept open, not ruled out and not promised for the first release. So
+this service reads what it forwards, that is the position at first release rather
+than an open question, and a later change to it is a change to that entry before
+it is a change to this paragraph.
 
 Network addresses, meaning the addresses participants connect from and the
 candidate addresses their software offers while establishing a connection.

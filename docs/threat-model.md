@@ -140,9 +140,11 @@ branch, #98. None exists yet, and there is no release.
 Reading the media in transit. Against it: the media path is encrypted between each
 participant and this service. The limit is exactly stated: this service decrypts,
 forwards and re-encrypts, so it can read what it carries. Whether that changes is
-entry 5 of issue #1, which is open. A deployment's confidentiality claim today
-therefore rests on the host and on the operator, and any stronger claim would be
-false.
+entry 5 of issue #1, and the answer there defers end to end encrypted media with
+the architecture kept open rather than ruling it out, so it is not in the first
+release and this limit is the one to plan against. A deployment's confidentiality
+claim today therefore rests on the host and on the operator, and any stronger
+claim would be false.
 
 Discovery of who is talking to whom by watching the network. Not mitigated. See
 the out-of-scope list below.
