@@ -1,0 +1,2 @@
+go test fuzz v1
+string("RELAIS_NAME=relais.example.org\nRELAIS_CREDENTIAL_PUBLIC_KEY=RQigeqlBcH8-stuUyIl6gLLBGXR2tt4hOsJz332GxP8\nRELAIS_DATA_DIRECTORY=/srv/relais\nRELAIS_CAP=60")

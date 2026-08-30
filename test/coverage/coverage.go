@@ -95,6 +95,15 @@ var Surfaces = []Surface{
 			"branch that a suite either reaches or leaves as a sentence in a record.",
 	},
 	{
+		Package: "github.com/iderex/relais/internal/orchestration/config",
+		Bar:     98.4,
+		Why: "This is what decides whether the service starts and in what state. Every value here arrives from " +
+			"outside, and each of the three fall backs issue #79 names turns a refusal into a service running as " +
+			"nobody intended: a missing credential that admits everyone, an unwritable data path that becomes " +
+			"memory, a cap that does not parse and becomes no cap. Each of those is one branch, and a branch a " +
+			"suite does not reach is a sentence in a record rather than a rule.",
+	},
+	{
 		Package: "github.com/iderex/relais/internal/mediaplane",
 		Bar:     0,
 		Why: "The vocabulary both sides of the port share, and it decides nothing about who may do what. " +
