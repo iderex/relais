@@ -314,6 +314,15 @@ that is the reason it is paid: an operator deciding to run a release built from
 this history is trusting the history, and without the requirement a commit's
 stated author is a field anybody can write.
 
+That cost is paid rather than proposed. The requirement was granted on 2026-08-25
+and the ruleset carries it:
+
+    gh api repos/iderex/relais/rulesets/20487474 --jq '[.rules[].type]'
+    ["deletion","non_fast_forward","pull_request","required_status_checks","required_signatures"]
+
+The reference still does not require them, so this entry stays a deviation upward
+rather than moving to the adopted list.
+
 A reproducible release from a tag, issue #112. An operator who cannot rebuild the
 artefact they are running cannot check that it is the artefact they were given.
 
