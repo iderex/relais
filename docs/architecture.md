@@ -15,6 +15,7 @@ Recorded for issue #16. It is short because a long one does not get read.
     internal/orchestration/  rooms, admission, events, capacity, the pool
     internal/api/            the operator API and the signalling surface
     bench/                   the measuring instrument, outside the build of the service
+    gate/                    the verb a contributor runs before pushing, outside that build too
     deploy/                  the artefacts an operator runs
     docs/decisions/          one decision per file
     test/                    suites whose subject is the tree rather than one package
@@ -112,6 +113,14 @@ other way round produces a package whose fixtures are silently rewritten and a
 test that passes against the wrong bytes.
 
 ## What this document does not decide
+
+Whether `gate/` carries a dependency direction. It imports nothing in this tree
+and nothing imports it, so a direction over it would pass by having no subject.
+This document already says what that is worth: a guard going green because there
+is nothing there is worse than an absent one, because the suite then says the rule
+is held. The direction arrives with the first import that would break it, in the
+change that adds it, with the near miss that proves it bites. Until then the rule
+is written in `gate/README.md` and refused by nothing.
 
 Which packages exist inside `internal/forwarding` or `internal/orchestration`.
 Those are shaped by the domain model in issue #31 and the API contract in issue
