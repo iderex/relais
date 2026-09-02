@@ -104,9 +104,9 @@ gh api repos/iderex/relais/commits/9ff2f29 --jq '.commit.verification | {verifie
 That answer is `verified: false` until the signing key is registered on the account
 that pushes, so the local `G` above is necessary and not sufficient.
 
-Where the requirement is in force, one unsigned commit anywhere in a branch's
-history refuses the merge, not only the last one. So the repair is to sign the
-history again, and signing a commit changes it, which means the branch is rewritten:
+One unsigned commit anywhere in a branch's history refuses the merge, not only the
+last one. So the repair is to sign the history again, and signing a commit changes
+it, which means the branch is rewritten:
 
 ```
 git rebase --exec 'git commit --amend --no-edit -S' origin/main
@@ -124,17 +124,18 @@ A commit made either way compiles, tests and reads exactly like a signed one, an
 nothing between here and the merge says otherwise. The refusal arrives at the end,
 on a commit made days earlier, and it costs the whole branch.
 
-Nothing refuses an unsigned commit here today. The ruleset carries no signature
-requirement, read at this commit rather than assumed:
+The requirement is in force. It was not until 2026-08-25, and this section said so
+for as long as that was true; the ruleset now carries `required_signatures`, read
+at this commit rather than assumed:
 
 ```
 gh api repos/iderex/relais/rulesets/20487474 --jq '{enforcement, bypass: .bypass_actors, types: [.rules[].type]}'
-{"bypass":[],"enforcement":"active","types":["deletion","non_fast_forward","pull_request"]}
+{"bypass":[],"enforcement":"active","types":["deletion","non_fast_forward","pull_request","required_status_checks","required_signatures"]}
 ```
 
-Issue #98 is the request for it and it has not been granted. Until it is, this
-section describes a requirement that is asked for and not in force, and signing is
-a courtesy to whoever grants it rather than something the tree makes you do.
+The bypass list is empty, so there is no actor the requirement does not reach, and
+the paragraph above is what an unsigned commit costs once it is in a branch's
+history. Issue #98 is where it was asked for and where the grant is recorded.
 
 ## Line endings
 

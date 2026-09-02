@@ -314,6 +314,15 @@ that is the reason it is paid: an operator deciding to run a release built from
 this history is trusting the history, and without the requirement a commit's
 stated author is a field anybody can write.
 
+That cost is paid rather than proposed. The requirement was granted on 2026-08-25
+and the ruleset carries it:
+
+    gh api repos/iderex/relais/rulesets/20487474 --jq '[.rules[].type]'
+    ["deletion","non_fast_forward","pull_request","required_status_checks","required_signatures"]
+
+The reference still does not require them, so this entry stays a deviation upward
+rather than moving to the adopted list.
+
 A reproducible release from a tag, issue #112. An operator who cannot rebuild the
 artefact they are running cannot check that it is the artefact they were given.
 
@@ -482,9 +491,35 @@ what makes it a finding rather than a reading of a report:
     go test ./internal/orchestration/credential/ -count=1
     ok  	github.com/iderex/relais/internal/orchestration/credential	0.737s
 
-The suite is green with the bound moved, which is what the rule exists to catch: a
-bound that is checked and never approached. It went to issue #173. The other
-surface produced nothing to place:
+Read that as dated 2026-08-11, the commit this section landed on. The suite was
+green with the bound moved, which is what the rule exists to catch: a bound that
+is checked and never approached. It went to issue #173.
+
+#173 closed with a test that kills it, so the same one-character edit reds the
+suite now. Run at `dcaf14bf48757578b65783dc9f92c35fb2b64741`:
+
+    sed -i '68s/len(token) > maxTokenBytes/len(token) >= maxTokenBytes/' internal/orchestration/credential/verify.go
+    go test ./internal/orchestration/credential/ -count=1
+    --- FAIL: TestTheLengthBoundIsDrivenAcrossTheByteItTakesEffectOn (0.05s)
+        credential_test.go:490: a credential of exactly 4096 bytes was refused: credential refused: too-large: the token is 4096 bytes, over the 4096 this project reads
+    FAIL
+    FAIL	github.com/iderex/relais/internal/orchestration/credential	0.545s
+
+    git checkout -- internal/orchestration/credential/verify.go
+
+What kills it is a credential built to exactly the permitted length and read, then
+one byte appended and the refusal required to name the length, so the pair differs
+by the single byte the comparison is about:
+
+    git log --format='%h %ad %s' --date=short -1 -S 'TestTheLengthBoundIsDrivenAcrossTheByteItTakesEffectOn' -- internal/orchestration/credential/credential_test.go
+    009557e 2026-08-27 Drive the token length bound at the byte it takes effect on
+
+So the sequence is readable here rather than only its first half: the mutant lived,
+it reproduced without the tool, it became an issue, and the issue closed with a
+test that kills it. The tool has not been re-run since the run above, and nothing
+here is a claim about what a fresh one would report.
+
+The other surface produced nothing to place:
 
     gremlins unleash --timeout-coefficient 10 ./internal/mediaplane
     Mutation testing completed in 18 seconds 372 milliseconds
