@@ -57,7 +57,7 @@ The cost of that rule is that the prefix belongs to the service and to nothing
 else. A tool that sets a prefixed variable in a process which then starts this
 service stops it. This repository already carries one such variable, in
 `.github/workflows/coverage.yml`, where a suite rather than the service reads it,
-so it is a near miss rather than a collision — and it is written down because the
+so it is a near miss rather than a collision, and it is written down because the
 next one will be written by somebody who did not know the prefix was claimed.
 
 Every problem in one reading is collected and reported together. A configuration
